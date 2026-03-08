@@ -7,7 +7,7 @@ function StockBar({ value, min }: { value: number; min: number }) {
   const pct = Math.min((value / (min * 2)) * 100, 100)
   const color = value < min ? 'bg-red-500' : value < min * 1.5 ? 'bg-amber-500' : 'bg-emerald-500'
   return (
-    <div className="w-20 h-1.5 bg-slate-100 rounded-full">
+    <div className="w-20 h-1.5 bg-slate-100 dark:bg-gray-700 rounded-full">
       <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
     </div>
   )
@@ -29,16 +29,16 @@ function MovementModal({ supply, onClose }: { supply: Supply; onClose: () => voi
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fadeIn">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">Registrar movimiento</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+          <h3 className="font-semibold text-slate-800 dark:text-white">Registrar movimiento</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400 hover:text-slate-600" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <p className="text-sm text-slate-500">Insumo</p>
-            <p className="font-semibold text-slate-800">{supply.name}</p>
-            <p className="text-xs text-slate-400">Stock actual: {supply.stock} {supply.unit}</p>
+            <p className="text-sm text-slate-500 dark:text-gray-400">Insumo</p>
+            <p className="font-semibold text-slate-800 dark:text-white">{supply.name}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">Stock actual: {supply.stock} {supply.unit}</p>
           </div>
           <div>
             <label className="label">Tipo de movimiento</label>
@@ -46,7 +46,9 @@ function MovementModal({ supply, onClose }: { supply: Supply; onClose: () => voi
               {(['entry','exit'] as const).map((t) => (
                 <button key={t} onClick={() => setType(t)}
                   className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                    type === t ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    type === t
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-slate-200 dark:border-gray-600 text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-700'
                   }`}>
                   {t === 'entry' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}
                   {t === 'entry' ? 'Entrada' : 'Salida'}
@@ -100,9 +102,9 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">{supply ? 'Editar insumo' : 'Nuevo insumo'}</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+          <h3 className="font-semibold text-slate-800 dark:text-white">{supply ? 'Editar insumo' : 'Nuevo insumo'}</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400 hover:text-slate-600" /></button>
         </div>
         <div className="px-6 py-5 grid grid-cols-2 gap-4">
@@ -154,8 +156,8 @@ export default function Inventory() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Inventario</h1>
-          <p className="text-slate-500 text-sm">Gestión de insumos y materias primas</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Inventario</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Gestión de insumos y materias primas</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setEditSupply(undefined); setShowModal(true) }}>
           <Plus size={16} /> Nuevo insumo
@@ -165,18 +167,18 @@ export default function Inventory() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:'Total insumos', value: supplies.length, icon: Package, color:'bg-blue-50 text-blue-600' },
-          { label:'Bajo stock',    value: lowStock,         icon: AlertTriangle, color:'bg-red-50 text-red-600' },
-          { label:'Categorías',    value: categories.length - 1, icon: Package, color:'bg-teal-50 text-teal-600' },
-          { label:'Valor inventario', value:`$${totalVal.toFixed(0)}`, icon: Package, color:'bg-violet-50 text-violet-600' },
+          { label:'Total insumos', value: supplies.length, icon: Package, color:'bg-blue-50 dark:bg-blue-900/30 text-blue-600' },
+          { label:'Bajo stock',    value: lowStock,         icon: AlertTriangle, color:'bg-red-50 dark:bg-red-900/30 text-red-600' },
+          { label:'Categorías',    value: categories.length - 1, icon: Package, color:'bg-teal-50 dark:bg-teal-900/30 text-teal-600' },
+          { label:'Valor inventario', value:`$${totalVal.toFixed(0)}`, icon: Package, color:'bg-violet-50 dark:bg-violet-900/30 text-violet-600' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
               <s.icon size={18} />
             </div>
             <div>
-              <p className="text-xs text-slate-500">{s.label}</p>
-              <p className="text-lg font-bold text-slate-800">{s.value}</p>
+              <p className="text-xs text-slate-500 dark:text-gray-400">{s.label}</p>
+              <p className="text-lg font-bold text-slate-800 dark:text-white">{s.value}</p>
             </div>
           </div>
         ))}
@@ -193,7 +195,9 @@ export default function Inventory() {
           {categories.map((c) => (
             <button key={c} onClick={() => setCatFilter(c)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                catFilter === c ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                catFilter === c
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
               }`}>{c}</button>
           ))}
         </div>
@@ -203,9 +207,9 @@ export default function Inventory() {
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
+            <tr className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-100 dark:border-gray-700">
               {['SKU','Nombre','Categoría','Stock','Mínimo','Estado','Costo/u','Valor total','Acciones'].map((h) => (
-                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500">{h}</th>
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 dark:text-gray-400">{h}</th>
               ))}
             </tr>
           </thead>
@@ -214,25 +218,25 @@ export default function Inventory() {
               const status = s.stock < s.minStock ? 'bajo' : s.stock < s.minStock * 1.5 ? 'alerta' : 'ok'
               return (
                 <tr key={s.id} className="table-row">
-                  <td className="px-4 py-3 font-mono text-xs text-slate-400">{s.sku}</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
-                  <td className="px-4 py-3 text-slate-500">{s.category}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-400 dark:text-gray-500">{s.sku}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-gray-200">{s.name}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-gray-400">{s.category}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`font-semibold ${status === 'bajo' ? 'text-red-600' : status === 'alerta' ? 'text-amber-600' : 'text-slate-800'}`}>
+                      <span className={`font-semibold ${status === 'bajo' ? 'text-red-600' : status === 'alerta' ? 'text-amber-600' : 'text-slate-800 dark:text-gray-200'}`}>
                         {s.stock} {s.unit}
                       </span>
                       <StockBar value={s.stock} min={s.minStock} />
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{s.minStock} {s.unit}</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-gray-400">{s.minStock} {s.unit}</td>
                   <td className="px-4 py-3">
                     <span className={`badge ${status === 'bajo' ? 'badge-red' : status === 'alerta' ? 'badge-yellow' : 'badge-green'}`}>
                       {status === 'bajo' ? 'Bajo stock' : status === 'alerta' ? 'Alerta' : 'Normal'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">${s.cost.toFixed(2)}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-700">${(s.stock * s.cost).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-gray-300">${s.cost.toFixed(2)}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-700 dark:text-gray-200">${(s.stock * s.cost).toFixed(2)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button className="btn btn-sm btn-secondary" onClick={() => setMovSupply(s)}>
@@ -249,7 +253,7 @@ export default function Inventory() {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-slate-400">
+          <div className="text-center py-12 text-slate-400 dark:text-gray-600">
             <Package size={36} className="mx-auto mb-3 opacity-30" />
             <p>No se encontraron insumos</p>
           </div>

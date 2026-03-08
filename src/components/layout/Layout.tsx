@@ -1,5 +1,4 @@
-import { ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useStore } from '../../store/useStore'
@@ -15,12 +14,12 @@ const titles: Record<string, string> = {
   '/settings':   'Configuración',
 }
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout() {
   const { sidebarOpen } = useStore()
   const { pathname } = useLocation()
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex">
       <Sidebar />
       <div
         className="flex-1 flex flex-col min-h-screen transition-all duration-300"
@@ -29,7 +28,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <Topbar title={titles[pathname]} />
         <main className="flex-1 p-6 overflow-auto">
           <div className="animate-fadeIn">
-            {children}
+            <Outlet />
           </div>
         </main>
       </div>

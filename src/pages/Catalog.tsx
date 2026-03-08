@@ -37,9 +37,9 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">{product ? 'Editar producto' : 'Nuevo producto'}</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+          <h3 className="font-semibold text-slate-800 dark:text-white">{product ? 'Editar producto' : 'Nuevo producto'}</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-5 grid grid-cols-2 gap-4">
@@ -74,9 +74,9 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
           </div>
         </div>
         {margin && (
-          <div className="mx-6 mb-4 bg-emerald-50 rounded-lg px-4 py-2.5 flex items-center justify-between">
-            <span className="text-xs text-emerald-700">Margen de ganancia estimado</span>
-            <span className="font-bold text-emerald-700">{margin}%</span>
+          <div className="mx-6 mb-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-4 py-2.5 flex items-center justify-between">
+            <span className="text-xs text-emerald-700 dark:text-emerald-400">Margen de ganancia estimado</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">{margin}%</span>
           </div>
         )}
         <div className="flex gap-3 px-6 pb-5">
@@ -98,8 +98,7 @@ function ProductCard({ product, onEdit }: { product: Product; onEdit: () => void
 
   return (
     <div className={`card p-5 transition-all hover:shadow-md ${!product.isActive ? 'opacity-60' : ''}`}>
-      {/* Image placeholder */}
-      <div className="w-full h-32 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg mb-3 flex items-center justify-center">
+      <div className="w-full h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-gray-700 dark:to-gray-600 rounded-lg mb-3 flex items-center justify-center">
         <span className="text-4xl">
           {product.category === 'Tortas' ? '🎂' :
            product.category === 'Panes'  ? '🍞' :
@@ -108,22 +107,30 @@ function ProductCard({ product, onEdit }: { product: Product; onEdit: () => void
         </span>
       </div>
       <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-slate-800 text-sm leading-tight flex-1 pr-2">{product.name}</h3>
+        <h3 className="font-semibold text-slate-800 dark:text-white text-sm leading-tight flex-1 pr-2">{product.name}</h3>
         <span className={`badge ${catBadge} flex-shrink-0`}>{product.category}</span>
       </div>
-      <p className="text-xs font-mono text-slate-400 mb-3">{product.sku}</p>
+      <p className="text-xs font-mono text-slate-400 dark:text-gray-500 mb-3">{product.sku}</p>
       <div className="grid grid-cols-3 gap-2 text-center mb-3">
-        <div className="bg-slate-50 rounded-lg p-2">
-          <p className="text-xs text-slate-400">Precio</p>
-          <p className="font-bold text-slate-800 text-sm">${product.price}</p>
+        <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2">
+          <p className="text-xs text-slate-400 dark:text-gray-400">Precio</p>
+          <p className="font-bold text-slate-800 dark:text-white text-sm">${product.price}</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-2">
-          <p className="text-xs text-slate-400">Costo</p>
-          <p className="font-bold text-slate-600 text-sm">${product.cost}</p>
+        <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2">
+          <p className="text-xs text-slate-400 dark:text-gray-400">Costo</p>
+          <p className="font-bold text-slate-600 dark:text-gray-300 text-sm">${product.cost}</p>
         </div>
-        <div className={`rounded-lg p-2 ${parseFloat(margin) > 40 ? 'bg-emerald-50' : parseFloat(margin) > 20 ? 'bg-amber-50' : 'bg-red-50'}`}>
-          <p className="text-xs text-slate-400">Margen</p>
-          <p className={`font-bold text-sm ${parseFloat(margin) > 40 ? 'text-emerald-700' : parseFloat(margin) > 20 ? 'text-amber-700' : 'text-red-700'}`}>
+        <div className={`rounded-lg p-2 ${
+          parseFloat(margin) > 40 ? 'bg-emerald-50 dark:bg-emerald-900/20'
+          : parseFloat(margin) > 20 ? 'bg-amber-50 dark:bg-amber-900/20'
+          : 'bg-red-50 dark:bg-red-900/20'
+        }`}>
+          <p className="text-xs text-slate-400 dark:text-gray-400">Margen</p>
+          <p className={`font-bold text-sm ${
+            parseFloat(margin) > 40 ? 'text-emerald-700 dark:text-emerald-400'
+            : parseFloat(margin) > 20 ? 'text-amber-700 dark:text-amber-400'
+            : 'text-red-700 dark:text-red-400'
+          }`}>
             {margin}%
           </p>
         </div>
@@ -161,8 +168,8 @@ export default function Catalog() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Catálogo de Productos</h1>
-          <p className="text-slate-500 text-sm">Gestión de productos y precios</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Catálogo de Productos</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Gestión de productos y precios</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setEditProduct(undefined); setShowModal(true) }}>
           <Plus size={16} /> Nuevo producto
@@ -178,12 +185,12 @@ export default function Catalog() {
           { label:'Margen promedio', value:`${avgMargin.toFixed(1)}%`, icon:TrendingUp },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
               <s.icon size={18} className="text-blue-600" />
             </div>
             <div>
-              <p className="text-xs text-slate-500">{s.label}</p>
-              <p className="text-xl font-bold text-slate-800">{s.value}</p>
+              <p className="text-xs text-slate-500 dark:text-gray-400">{s.label}</p>
+              <p className="text-xl font-bold text-slate-800 dark:text-white">{s.value}</p>
             </div>
           </div>
         ))}
@@ -200,7 +207,9 @@ export default function Catalog() {
           {categories.map((c) => (
             <button key={c} onClick={() => setCat(c)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                catFilter === c ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                catFilter === c
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
               }`}>{c}</button>
           ))}
         </div>
@@ -212,7 +221,7 @@ export default function Catalog() {
           <ProductCard key={p.id} product={p} onEdit={() => { setEditProduct(p); setShowModal(true) }} />
         ))}
         {filtered.length === 0 && (
-          <div className="col-span-4 text-center py-16 text-slate-400">
+          <div className="col-span-4 text-center py-16 text-slate-400 dark:text-gray-600">
             <BookOpen size={40} className="mx-auto mb-3 opacity-30" />
             <p>No se encontraron productos</p>
           </div>

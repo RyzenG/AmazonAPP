@@ -28,9 +28,9 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">{customer ? 'Editar cliente' : 'Nuevo cliente'}</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+          <h3 className="font-semibold text-slate-800 dark:text-white">{customer ? 'Editar cliente' : 'Nuevo cliente'}</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-5 grid grid-cols-2 gap-4">
@@ -64,7 +64,7 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
 
 function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () => void }) {
   return (
-    <div className="card p-5 hover:border-blue-200 border border-transparent transition-all cursor-pointer"
+    <div className="card p-5 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent transition-all cursor-pointer"
       onClick={onClick}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -74,31 +74,31 @@ function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () =
             </span>
           </div>
           <div>
-            <h3 className="font-semibold text-slate-800 text-sm">{customer.name}</h3>
-            {customer.company && <p className="text-xs text-slate-500">{customer.company}</p>}
+            <h3 className="font-semibold text-slate-800 dark:text-white text-sm">{customer.name}</h3>
+            {customer.company && <p className="text-xs text-slate-500 dark:text-gray-400">{customer.company}</p>}
           </div>
         </div>
         <span className={`badge ${SEG_BADGE[customer.segment]}`}>{SEG_LABELS[customer.segment]}</span>
       </div>
       <div className="space-y-1.5">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
           <Mail size={11} /><span className="truncate">{customer.email}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
           <Phone size={11} /><span>{customer.phone}</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
           <MapPin size={11} /><span>{customer.city}</span>
         </div>
       </div>
-      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-400">Total compras</p>
-          <p className="font-bold text-slate-800">${customer.totalPurchases.toLocaleString()}</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500">Total compras</p>
+          <p className="font-bold text-slate-800 dark:text-white">${customer.totalPurchases.toLocaleString()}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400">Última compra</p>
-          <p className="text-xs font-medium text-slate-600">{customer.lastPurchase}</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500">Última compra</p>
+          <p className="text-xs font-medium text-slate-600 dark:text-gray-300">{customer.lastPurchase}</p>
         </div>
       </div>
     </div>
@@ -127,8 +127,8 @@ export default function CRM() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Clientes — CRM</h1>
-          <p className="text-slate-500 text-sm">Base de clientes y seguimiento</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Clientes — CRM</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Base de clientes y seguimiento</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={16} /> Nuevo cliente
@@ -148,8 +148,8 @@ export default function CRM() {
               <s.icon size={18} className="text-white" />
             </div>
             <div>
-              <p className="text-xs text-slate-500">{s.label}</p>
-              <p className="text-xl font-bold text-slate-800">{s.value}</p>
+              <p className="text-xs text-slate-500 dark:text-gray-400">{s.label}</p>
+              <p className="text-xl font-bold text-slate-800 dark:text-white">{s.value}</p>
             </div>
           </div>
         ))}
@@ -166,7 +166,9 @@ export default function CRM() {
           {[['all','Todos'],['regular','Regular'],['mayorista','Mayorista'],['vip','VIP']].map(([v,l]) => (
             <button key={v} onClick={() => setSeg(v)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                segFilter === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                segFilter === v
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
               }`}>{l}</button>
           ))}
         </div>
@@ -178,7 +180,7 @@ export default function CRM() {
           <CustomerCard key={c.id} customer={c} onClick={() => setSelected(c)} />
         ))}
         {filtered.length === 0 && (
-          <div className="col-span-3 text-center py-16 text-slate-400">
+          <div className="col-span-3 text-center py-16 text-slate-400 dark:text-gray-600">
             <Users size={40} className="mx-auto mb-3 opacity-30" />
             <p>No se encontraron clientes</p>
           </div>
@@ -188,9 +190,9 @@ export default function CRM() {
       {/* Customer Detail Drawer */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-end z-50">
-          <div className="bg-white w-full max-w-md h-full overflow-y-auto animate-slideIn">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
-              <h3 className="font-semibold">Detalle del cliente</h3>
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md h-full overflow-y-auto animate-slideIn">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+              <h3 className="font-semibold dark:text-white">Detalle del cliente</h3>
               <button onClick={() => setSelected(null)}><X size={18} className="text-slate-400" /></button>
             </div>
             <div className="p-6 space-y-6">
@@ -202,55 +204,55 @@ export default function CRM() {
                   </span>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">{selected.name}</h2>
-                  {selected.company && <p className="text-slate-500">{selected.company}</p>}
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-white">{selected.name}</h2>
+                  {selected.company && <p className="text-slate-500 dark:text-gray-400">{selected.company}</p>}
                   <span className={`badge ${SEG_BADGE[selected.segment]} mt-1`}>{SEG_LABELS[selected.segment]}</span>
                 </div>
               </div>
 
               {/* Contact */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Contacto</h4>
+                <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Contacto</h4>
                 {[
                   [Mail,   'Email',     selected.email],
                   [Phone,  'Teléfono',  selected.phone],
                   [MapPin, 'Ciudad',    selected.city],
                 ].map(([Icon, label, value]: any) => (
                   <div key={label} className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                      <Icon size={14} className="text-slate-400" />
+                    <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
+                      <Icon size={14} className="text-slate-400 dark:text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">{label}</p>
-                      <p className="text-slate-700 font-medium">{value}</p>
+                      <p className="text-xs text-slate-400 dark:text-gray-500">{label}</p>
+                      <p className="text-slate-700 dark:text-gray-200 font-medium">{value}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Purchases stats */}
-              <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-xs text-slate-400">Total compras</p>
-                  <p className="text-2xl font-bold text-slate-800">${selected.totalPurchases.toLocaleString()}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-400">Total compras</p>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-white">${selected.totalPurchases.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Última compra</p>
-                  <p className="font-bold text-slate-700">{selected.lastPurchase}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-400">Última compra</p>
+                  <p className="font-bold text-slate-700 dark:text-gray-200">{selected.lastPurchase}</p>
                 </div>
               </div>
 
               {/* Purchase history */}
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Historial de compras</h4>
+                <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">Historial de compras</h4>
                 {saleOrders.filter((o) => o.customerId === selected.id).map((o) => (
-                  <div key={o.id} className="flex items-center justify-between py-3 border-b border-slate-100">
+                  <div key={o.id} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-gray-700">
                     <div>
-                      <p className="text-sm font-medium text-slate-700">{o.orderNumber}</p>
-                      <p className="text-xs text-slate-400">{o.date}</p>
+                      <p className="text-sm font-medium text-slate-700 dark:text-gray-200">{o.orderNumber}</p>
+                      <p className="text-xs text-slate-400 dark:text-gray-500">{o.date}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-slate-800">${o.total.toFixed(2)}</p>
+                      <p className="font-bold text-slate-800 dark:text-white">${o.total.toFixed(2)}</p>
                       <span className={`badge ${o.paymentStatus === 'paid' ? 'badge-green' : 'badge-yellow'} text-xs`}>
                         {o.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
                       </span>
@@ -258,7 +260,7 @@ export default function CRM() {
                   </div>
                 ))}
                 {saleOrders.filter((o) => o.customerId === selected.id).length === 0 && (
-                  <p className="text-sm text-slate-400">Sin compras registradas</p>
+                  <p className="text-sm text-slate-400 dark:text-gray-500">Sin compras registradas</p>
                 )}
               </div>
             </div>

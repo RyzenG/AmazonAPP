@@ -31,65 +31,60 @@ function OrderCard({ order }: { order: ProductionOrder }) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-slate-400">{order.orderNumber}</span>
+              <span className="text-xs font-mono text-slate-400 dark:text-gray-500">{order.orderNumber}</span>
               <span className={`badge ${STATUS_BADGE[order.status]}`}>{STATUS_LABELS[order.status]}</span>
-              <span className="text-xs text-slate-400">{PRIORITY_LABELS[order.priority]}</span>
+              <span className="text-xs text-slate-400 dark:text-gray-500">{PRIORITY_LABELS[order.priority]}</span>
             </div>
-            <h3 className="font-semibold text-slate-800 truncate">{order.product}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{order.recipe}</p>
+            <h3 className="font-semibold text-slate-800 dark:text-white truncate">{order.product}</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{order.recipe}</p>
           </div>
-          <button onClick={() => setExpanded(!expanded)} className="text-slate-400 hover:text-slate-600 mt-1">
+          <button onClick={() => setExpanded(!expanded)} className="text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 mt-1">
             <ChevronDown size={16} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </button>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mt-3">
-          <div className="bg-slate-50 rounded-lg p-2 text-center">
-            <p className="text-xs text-slate-400">Cantidad</p>
-            <p className="font-bold text-slate-700">{order.plannedQty} u</p>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-2 text-center">
-            <p className="text-xs text-slate-400">Costo est.</p>
-            <p className="font-bold text-slate-700">${order.estimatedCost}</p>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-2 text-center">
-            <p className="text-xs text-slate-400">Responsable</p>
-            <p className="font-bold text-slate-700 text-xs truncate">{order.assignedTo.split(' ')[0]}</p>
-          </div>
+          {[
+            { label: 'Cantidad', val: `${order.plannedQty} u` },
+            { label: 'Costo est.', val: `$${order.estimatedCost}` },
+            { label: 'Responsable', val: order.assignedTo.split(' ')[0] },
+          ].map((item) => (
+            <div key={item.label} className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2 text-center">
+              <p className="text-xs text-slate-400 dark:text-gray-400">{item.label}</p>
+              <p className="font-bold text-slate-700 dark:text-gray-200 text-xs truncate">{item.val}</p>
+            </div>
+          ))}
         </div>
 
         {order.status === 'in_progress' && (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-gray-400 mb-1">
               <span>Progreso estimado</span><span>60%</span>
             </div>
-            <div className="h-2 bg-slate-100 rounded-full">
+            <div className="h-2 bg-slate-100 dark:bg-gray-700 rounded-full">
               <div className="h-2 bg-blue-500 rounded-full" style={{ width: '60%' }} />
             </div>
           </div>
         )}
 
         {expanded && (
-          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5 animate-fadeIn">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Clock size={12} />
-              <span>Inicio: {order.plannedStart}</span>
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-gray-700 space-y-1.5 animate-fadeIn">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
+              <Clock size={12} /><span>Inicio: {order.plannedStart}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Clock size={12} />
-              <span>Fin planificado: {order.plannedEnd}</span>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
+              <Clock size={12} /><span>Fin planificado: {order.plannedEnd}</span>
             </div>
             {order.actualCost && (
               <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
-                <CheckCircle size={12} />
-                <span>Costo real: ${order.actualCost}</span>
+                <CheckCircle size={12} /><span>Costo real: ${order.actualCost}</span>
               </div>
             )}
           </div>
         )}
 
         {actions.length > 0 && (
-          <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+          <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-gray-700">
             {actions.map((a) => (
               <button key={a.status} className={`btn btn-sm ${a.cls} flex-1`}
                 onClick={() => updateProductionOrderStatus(order.id, a.status)}>
@@ -132,9 +127,9 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-800">Nueva orden de producción</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+          <h3 className="font-semibold text-slate-800 dark:text-white">Nueva orden de producción</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -146,7 +141,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
             </select>
           </div>
           {recipe && (
-            <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 space-y-1 animate-fadeIn">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1 animate-fadeIn">
               <p><strong>Rendimiento:</strong> {recipe.yieldQty} {recipe.yieldUnit} por lote</p>
               <p><strong>Costo/unidad:</strong> ${recipe.costPerUnit.toFixed(2)}</p>
               <p><strong>Ingredientes:</strong> {recipe.ingredients.length} insumos</p>
@@ -168,8 +163,8 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
             </select>
           </div>
           {recipe && qty && (
-            <div className="bg-emerald-50 rounded-lg p-3 text-xs animate-fadeIn">
-              <p className="text-emerald-700 font-semibold">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3 text-xs animate-fadeIn">
+              <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
                 Costo estimado total: ${(recipe.costPerUnit * parseFloat(qty || '0')).toFixed(2)}
               </p>
             </div>
@@ -203,8 +198,8 @@ export default function Production() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Producción</h1>
-          <p className="text-slate-500 text-sm">Órdenes de producción y recetas</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Producción</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Órdenes de producción y recetas</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <Plus size={16} /> Nueva orden
@@ -214,9 +209,9 @@ export default function Production() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label:'Pendientes', count:counts.pending, color:'bg-amber-50 border-amber-200 text-amber-700' },
-          { label:'En producción', count:counts.in_progress, color:'bg-blue-50 border-blue-200 text-blue-700' },
-          { label:'Finalizadas', count:counts.finished, color:'bg-emerald-50 border-emerald-200 text-emerald-700' },
+          { label:'Pendientes', count:counts.pending, color:'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400' },
+          { label:'En producción', count:counts.in_progress, color:'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400' },
+          { label:'Finalizadas', count:counts.finished, color:'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400' },
         ].map((s) => (
           <div key={s.label} className={`card border p-4 text-center ${s.color}`}>
             <p className="text-3xl font-bold">{s.count}</p>
@@ -226,11 +221,13 @@ export default function Production() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
         {(['orders','recipes'] as const).map((t) => (
           <button key={t} onClick={() => setActiveTab(t)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === t ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              activeTab === t
+                ? 'bg-white dark:bg-gray-800 text-slate-800 dark:text-white shadow-sm'
+                : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
             }`}>
             {t === 'orders' ? '📋 Órdenes' : '📖 Recetas'}
           </button>
@@ -244,7 +241,9 @@ export default function Production() {
             {[['all','Todas'],['pending','Pendientes'],['in_progress','En producción'],['finished','Finalizadas'],['cancelled','Canceladas']].map(([v,l]) => (
               <button key={v} onClick={() => setFilter(v)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  filter === v ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  filter === v
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
                 }`}>{l}</button>
             ))}
           </div>
@@ -252,7 +251,7 @@ export default function Production() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((o) => <OrderCard key={o.id} order={o} />)}
             {filtered.length === 0 && (
-              <div className="col-span-3 text-center py-16 text-slate-400">
+              <div className="col-span-3 text-center py-16 text-slate-400 dark:text-gray-600">
                 <Factory size={40} className="mx-auto mb-3 opacity-30" />
                 <p>No hay órdenes en este estado</p>
               </div>
@@ -266,25 +265,25 @@ export default function Production() {
           {recipes.map((r) => (
             <div key={r.id} className="card p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-800">{r.name}</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-white">{r.name}</h3>
                 <span className="badge badge-blue">{r.yieldQty} {r.yieldUnit}</span>
               </div>
               <div className="space-y-1.5">
                 {r.ingredients.map((ing) => (
                   <div key={ing.supplyId} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600">{ing.supplyName}</span>
+                    <span className="text-slate-600 dark:text-gray-300">{ing.supplyName}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500">{ing.qty} {ing.unit}</span>
-                      <span className="text-slate-700 font-medium w-12 text-right">${ing.cost.toFixed(2)}</span>
+                      <span className="text-slate-500 dark:text-gray-400">{ing.qty} {ing.unit}</span>
+                      <span className="text-slate-700 dark:text-gray-200 font-medium w-12 text-right">${ing.cost.toFixed(2)}</span>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs text-slate-500">Costo total</span>
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-between">
+                <span className="text-xs text-slate-500 dark:text-gray-400">Costo total</span>
                 <div className="text-right">
-                  <p className="font-bold text-slate-800">${r.totalCost.toFixed(2)}</p>
-                  <p className="text-xs text-slate-400">${r.costPerUnit.toFixed(2)} / u</p>
+                  <p className="font-bold text-slate-800 dark:text-white">${r.totalCost.toFixed(2)}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500">${r.costPerUnit.toFixed(2)} / u</p>
                 </div>
               </div>
             </div>
