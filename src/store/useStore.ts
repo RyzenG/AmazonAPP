@@ -56,7 +56,26 @@ interface AppState {
   addProductionOrder: (o: ProductionOrder) => void
 }
 
-// Persist helpers
+// ── Persist helpers ──────────────────────────────────────────────────────────
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return fallback
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
+function save<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // localStorage not available (e.g. private mode quota exceeded)
+  }
+}
+
 const getAuth = (): { isAuthenticated: boolean; user: AuthUser | null } => {
   try {
     const raw = localStorage.getItem('erp_auth')
@@ -105,17 +124,25 @@ const buildInitialNotifications = (existing: Notification[]): Notification[] => 
   return [...existing, ...auto]
 }
 
-const initialAuth = getAuth()
+const initialAuth          = getAuth()
 const initialNotifications = buildInitialNotifications(getNotifications())
-const initialDark = getDarkMode()
+const initialDark          = getDarkMode()
+
+// ── Business data: load from localStorage, fall back to mock data ────────────
+const initialSupplies         = load<Supply[]>('erp_supplies', initSupplies)
+const initialProducts         = load<Product[]>('erp_products', initProducts)
+const initialProductionOrders = load<ProductionOrder[]>('erp_production_orders', initProdOrders)
+const initialCustomers        = load<Customer[]>('erp_customers', initCustomers)
+const initialSaleOrders       = load<SaleOrder[]>('erp_sale_orders', initSaleOrders)
+const initialRecipes          = load<Recipe[]>('erp_recipes', initRecipes)
 
 export const useStore = create<AppState>((set) => ({
-  supplies:         initSupplies,
-  products:         initProducts,
-  productionOrders: initProdOrders,
-  customers:        initCustomers,
-  saleOrders:       initSaleOrders,
-  recipes:          initRecipes,
+  supplies:         initialSupplies,
+  products:         initialProducts,
+  productionOrders: initialProductionOrders,
+  customers:        initialCustomers,
+  saleOrders:       initialSaleOrders,
+  recipes:          initialRecipes,
   sidebarOpen:      true,
   darkMode:         initialDark,
   isAuthenticated:  initialAuth.isAuthenticated,
@@ -175,18 +202,65 @@ export const useStore = create<AppState>((set) => ({
   },
 
   updateProductionOrderStatus: (id, status) =>
-    set((s) => ({
-      productionOrders: s.productionOrders.map((o) =>
-        o.id === id ? { ...o, status } : o
-      ),
-    })),
+    set((s) => {
+      const updated = s.productionOrders.map((o) => o.id === id ? { ...o, status } : o)
+      save('erp_production_orders', updated)
+      return { productionOrders: updated }
+    }),
 
-  addSupply:    (supply)    => set((s) => ({ supplies:  [...s.supplies,  supply]  })),
-  updateSupply: (supply)    => set((s) => ({ supplies:  s.supplies.map((x) => x.id === supply.id ? supply : x) })),
-  addProduct:   (product)   => set((s) => ({ products:  [...s.products,  product] })),
-  updateProduct:(product)   => set((s) => ({ products:  s.products.map((x) => x.id === product.id ? product : x) })),
-  addCustomer:  (customer)  => set((s) => ({ customers: [...s.customers, customer]})),
-  addSaleOrder: (order)     => set((s) => ({ saleOrders:[...s.saleOrders, order]  })),
-  updateSaleOrder:(order)   => set((s) => ({ saleOrders: s.saleOrders.map((x) => x.id === order.id ? order : x) })),
-  addProductionOrder:(order)=> set((s) => ({ productionOrders:[...s.productionOrders, order] })),
+  addSupply: (supply) =>
+    set((s) => {
+      const updated = [...s.supplies, supply]
+      save('erp_supplies', updated)
+      return { supplies: updated }
+    }),
+
+  updateSupply: (supply) =>
+    set((s) => {
+      const updated = s.supplies.map((x) => x.id === supply.id ? supply : x)
+      save('erp_supplies', updated)
+      return { supplies: updated }
+    }),
+
+  addProduct: (product) =>
+    set((s) => {
+      const updated = [...s.products, product]
+      save('erp_products', updated)
+      return { products: updated }
+    }),
+
+  updateProduct: (product) =>
+    set((s) => {
+      const updated = s.products.map((x) => x.id === product.id ? product : x)
+      save('erp_products', updated)
+      return { products: updated }
+    }),
+
+  addCustomer: (customer) =>
+    set((s) => {
+      const updated = [...s.customers, customer]
+      save('erp_customers', updated)
+      return { customers: updated }
+    }),
+
+  addSaleOrder: (order) =>
+    set((s) => {
+      const updated = [...s.saleOrders, order]
+      save('erp_sale_orders', updated)
+      return { saleOrders: updated }
+    }),
+
+  updateSaleOrder: (order) =>
+    set((s) => {
+      const updated = s.saleOrders.map((x) => x.id === order.id ? order : x)
+      save('erp_sale_orders', updated)
+      return { saleOrders: updated }
+    }),
+
+  addProductionOrder: (order) =>
+    set((s) => {
+      const updated = [...s.productionOrders, order]
+      save('erp_production_orders', updated)
+      return { productionOrders: updated }
+    }),
 }))
