@@ -8,7 +8,8 @@ const DEMO_PASSWORD = 'admin123'
 
 export default function Login() {
   const navigate = useNavigate()
-  const login = useStore((s) => s.login)
+  const login           = useStore((s) => s.login)
+  const companySettings = useStore((s) => s.companySettings)
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd]   = useState(false)
@@ -33,13 +34,25 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Logo / Branding */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-3 shadow-lg">
-            <TrendingUp size={24} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">ProducERP</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Ingresa a tu cuenta</p>
+          {companySettings.logo ? (
+            <img
+              src={companySettings.logo}
+              alt={companySettings.companyName}
+              className="h-24 w-auto object-contain mb-3"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-3 shadow-lg">
+              <TrendingUp size={24} className="text-white" />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            {companySettings.companyName || 'ProducERP'}
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {companySettings.slogan || 'Ingresa a tu cuenta'}
+          </p>
         </div>
 
         {/* Card */}

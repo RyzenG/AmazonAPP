@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
@@ -10,8 +11,15 @@ import CRM from './pages/CRM'
 import Reports from './pages/Reports'
 import Catalog from './pages/Catalog'
 import Settings from './pages/Settings'
+import { useStore } from './store/useStore'
 
 export default function App() {
+  const { isAuthenticated, loadAllData } = useStore()
+
+  useEffect(() => {
+    if (isAuthenticated) loadAllData()
+  }, [isAuthenticated])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

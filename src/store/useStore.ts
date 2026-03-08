@@ -1,8 +1,5 @@
 import { create } from 'zustand'
 import {
-  supplies as initSupplies, products as initProducts,
-  productionOrders as initProdOrders, customers as initCustomers,
-  saleOrders as initSaleOrders, recipes as initRecipes,
   Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe,
 } from '../data/mockData'
 
@@ -20,6 +17,17 @@ export interface AuthUser {
   role: string
 }
 
+export interface CompanySettings {
+  companyName: string
+  slogan: string
+  email: string
+  phone: string
+  address: string
+  currency: string
+  timezone: string
+  logo: string | null
+}
+
 interface AppState {
   // Data
   supplies:         Supply[]
@@ -28,52 +36,56 @@ interface AppState {
   customers:        Customer[]
   saleOrders:       SaleOrder[]
   recipes:          Recipe[]
+  // Company settings
+  companySettings:  CompanySettings
   // UI
   sidebarOpen: boolean
   darkMode:    boolean
+  dataLoaded:  boolean
   // Auth
   isAuthenticated: boolean
   user: AuthUser | null
   // Notifications
   notifications: Notification[]
-  // Actions
+  // Actions – data loading
+  loadAllData: () => Promise<void>
+  // Actions – UI
   setSidebarOpen: (v: boolean) => void
   toggleDarkMode: () => void
+  // Actions – auth
   login:  (user: AuthUser) => void
   logout: () => void
+  // Actions – notifications
   addNotification:  (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
   markAsRead:       (id: string) => void
   markAllAsRead:    () => void
   clearNotifications: () => void
+  // Actions – business data
   updateProductionOrderStatus: (id: string, status: ProductionOrder['status']) => void
-  addSupply:    (s: Supply)    => void
-  updateSupply: (s: Supply)    => void
-  addProduct:   (p: Product)   => void
-  updateProduct:(p: Product)   => void
-  addCustomer:  (c: Customer)  => void
-  addSaleOrder: (o: SaleOrder) => void
-  updateSaleOrder: (o: SaleOrder) => void
-  addProductionOrder: (o: ProductionOrder) => void
+  addSupply:    (s: Supply)    => Promise<void>
+  updateSupply: (s: Supply)    => Promise<void>
+  addProduct:   (p: Product)   => Promise<void>
+  updateProduct:(p: Product)   => Promise<void>
+  addCustomer:  (c: Customer)  => Promise<void>
+  addSaleOrder: (o: SaleOrder) => Promise<void>
+  updateSaleOrder: (o: SaleOrder) => Promise<void>
+  addProductionOrder: (o: ProductionOrder) => Promise<void>
+  // Actions – company settings
+  saveCompanySettings: (s: CompanySettings) => Promise<void>
 }
 
-// ── Persist helpers ──────────────────────────────────────────────────────────
+// ── localStorage helpers (solo para auth, theme, notifications, logo) ────────
 
-function load<T>(key: string, fallback: T): T {
+function lsGet<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
     if (!raw) return fallback
     return JSON.parse(raw) as T
-  } catch {
-    return fallback
-  }
+  } catch { return fallback }
 }
 
-function save<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // localStorage not available (e.g. private mode quota exceeded)
-  }
+function lsSet(key: string, value: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* noop */ }
 }
 
 const getAuth = (): { isAuthenticated: boolean; user: AuthUser | null } => {
@@ -81,9 +93,7 @@ const getAuth = (): { isAuthenticated: boolean; user: AuthUser | null } => {
     const raw = localStorage.getItem('erp_auth')
     if (!raw) return { isAuthenticated: false, user: null }
     return { isAuthenticated: true, user: JSON.parse(raw) }
-  } catch {
-    return { isAuthenticated: false, user: null }
-  }
+  } catch { return { isAuthenticated: false, user: null } }
 }
 
 const getNotifications = (): Notification[] => {
@@ -91,64 +101,89 @@ const getNotifications = (): Notification[] => {
     const raw = localStorage.getItem('erp_notifications')
     if (!raw) return []
     return JSON.parse(raw).map((n: Notification) => ({ ...n, timestamp: new Date(n.timestamp) }))
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
-const getDarkMode = (): boolean => {
-  return localStorage.getItem('erp_theme') === 'dark'
-}
+const getDarkMode = (): boolean => localStorage.getItem('erp_theme') === 'dark'
 
-// Apply dark class on initial load (before React renders)
 if (getDarkMode()) document.documentElement.classList.add('dark')
 
-// Generate initial business notifications from mock data
-const buildInitialNotifications = (existing: Notification[]): Notification[] => {
-  const existingIds = new Set(existing.map((n) => n.id))
-  const auto: Notification[] = []
+// ── API helpers ──────────────────────────────────────────────────────────────
 
-  initSupplies.forEach((s) => {
-    const id = `lowstock_${s.id}`
-    if (s.stock < s.minStock && !existingIds.has(id)) {
-      auto.push({ id, type: 'warning', message: `Stock bajo: ${s.name} (${s.stock} ${s.unit}, mín ${s.minStock})`, timestamp: new Date(), read: false })
-    }
+async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
   })
-
-  const pending = initProdOrders.filter((o) => o.status === 'pending')
-  const pendingId = 'pending_orders'
-  if (pending.length > 0 && !existingIds.has(pendingId)) {
-    auto.push({ id: pendingId, type: 'info', message: `${pending.length} órdenes de producción pendientes`, timestamp: new Date(), read: false })
-  }
-
-  return [...existing, ...auto]
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`)
+  return res.json()
 }
 
+// ── Initial state ────────────────────────────────────────────────────────────
+
 const initialAuth          = getAuth()
-const initialNotifications = buildInitialNotifications(getNotifications())
+const initialNotifications = getNotifications()
 const initialDark          = getDarkMode()
 
-// ── Business data: load from localStorage, fall back to mock data ────────────
-const initialSupplies         = load<Supply[]>('erp_supplies', initSupplies)
-const initialProducts         = load<Product[]>('erp_products', initProducts)
-const initialProductionOrders = load<ProductionOrder[]>('erp_production_orders', initProdOrders)
-const initialCustomers        = load<Customer[]>('erp_customers', initCustomers)
-const initialSaleOrders       = load<SaleOrder[]>('erp_sale_orders', initSaleOrders)
-const initialRecipes          = load<Recipe[]>('erp_recipes', initRecipes)
+const defaultCompanySettings: CompanySettings = {
+  companyName: 'Amazonia Concrete',
+  slogan: '',
+  email: '',
+  phone: '',
+  address: '',
+  currency: 'COP',
+  timezone: 'America/Bogota',
+  logo: lsGet<string | null>('erp_logo', null),
+}
 
-export const useStore = create<AppState>((set) => ({
-  supplies:         initialSupplies,
-  products:         initialProducts,
-  productionOrders: initialProductionOrders,
-  customers:        initialCustomers,
-  saleOrders:       initialSaleOrders,
-  recipes:          initialRecipes,
+export const useStore = create<AppState>((set, get) => ({
+  supplies:         [],
+  products:         [],
+  productionOrders: [],
+  customers:        [],
+  saleOrders:       [],
+  recipes:          [],
+  companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
+  dataLoaded:       false,
   isAuthenticated:  initialAuth.isAuthenticated,
   user:             initialAuth.user,
   notifications:    initialNotifications,
 
+  // ── Load all data from API ─────────────────────────────────────────────────
+  loadAllData: async () => {
+    if (get().dataLoaded) return
+    try {
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings] =
+        await Promise.all([
+          apiFetch<Supply[]>('/api/supplies'),
+          apiFetch<Product[]>('/api/products'),
+          apiFetch<ProductionOrder[]>('/api/production-orders'),
+          apiFetch<Customer[]>('/api/customers'),
+          apiFetch<SaleOrder[]>('/api/sale-orders'),
+          apiFetch<Recipe[]>('/api/recipes'),
+          apiFetch<Partial<CompanySettings>>('/api/settings'),
+        ])
+
+      const companySettings: CompanySettings = {
+        companyName: settings.companyName ?? defaultCompanySettings.companyName,
+        slogan:      settings.slogan      ?? defaultCompanySettings.slogan,
+        email:       settings.email       ?? defaultCompanySettings.email,
+        phone:       settings.phone       ?? defaultCompanySettings.phone,
+        address:     settings.address     ?? defaultCompanySettings.address,
+        currency:    settings.currency    ?? defaultCompanySettings.currency,
+        timezone:    settings.timezone    ?? defaultCompanySettings.timezone,
+        logo:        settings.logo        ?? lsGet<string | null>('erp_logo', null),
+      }
+
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, companySettings, dataLoaded: true })
+    } catch (e) {
+      console.error('No se pudo conectar con el servidor:', e)
+    }
+  },
+
+  // ── UI ─────────────────────────────────────────────────────────────────────
   setSidebarOpen: (v) => set({ sidebarOpen: v }),
 
   toggleDarkMode: () =>
@@ -164,6 +199,7 @@ export const useStore = create<AppState>((set) => ({
       return { darkMode: next }
     }),
 
+  // ── Auth ───────────────────────────────────────────────────────────────────
   login: (user) => {
     localStorage.setItem('erp_auth', JSON.stringify(user))
     set({ isAuthenticated: true, user })
@@ -171,28 +207,29 @@ export const useStore = create<AppState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('erp_auth')
-    set({ isAuthenticated: false, user: null })
+    set({ isAuthenticated: false, user: null, dataLoaded: false })
   },
 
+  // ── Notifications ──────────────────────────────────────────────────────────
   addNotification: (n) =>
     set((s) => {
       const notif: Notification = { ...n, id: crypto.randomUUID(), timestamp: new Date(), read: false }
       const updated = [notif, ...s.notifications]
-      localStorage.setItem('erp_notifications', JSON.stringify(updated))
+      lsSet('erp_notifications', updated)
       return { notifications: updated }
     }),
 
   markAsRead: (id) =>
     set((s) => {
       const updated = s.notifications.map((n) => n.id === id ? { ...n, read: true } : n)
-      localStorage.setItem('erp_notifications', JSON.stringify(updated))
+      lsSet('erp_notifications', updated)
       return { notifications: updated }
     }),
 
   markAllAsRead: () =>
     set((s) => {
       const updated = s.notifications.map((n) => ({ ...n, read: true }))
-      localStorage.setItem('erp_notifications', JSON.stringify(updated))
+      lsSet('erp_notifications', updated)
       return { notifications: updated }
     }),
 
@@ -201,66 +238,61 @@ export const useStore = create<AppState>((set) => ({
     set({ notifications: [] })
   },
 
-  updateProductionOrderStatus: (id, status) =>
-    set((s) => {
-      const updated = s.productionOrders.map((o) => o.id === id ? { ...o, status } : o)
-      save('erp_production_orders', updated)
-      return { productionOrders: updated }
-    }),
+  // ── Business data mutations (via API) ──────────────────────────────────────
+  updateProductionOrderStatus: async (id, status) => {
+    await apiFetch(`/api/production-orders/${id}/status`, {
+      method: 'PUT', body: JSON.stringify({ status }),
+    })
+    set((s) => ({
+      productionOrders: s.productionOrders.map((o) => o.id === id ? { ...o, status } : o),
+    }))
+  },
 
-  addSupply: (supply) =>
-    set((s) => {
-      const updated = [...s.supplies, supply]
-      save('erp_supplies', updated)
-      return { supplies: updated }
-    }),
+  addSupply: async (supply) => {
+    await apiFetch('/api/supplies', { method: 'POST', body: JSON.stringify(supply) })
+    set((s) => ({ supplies: [...s.supplies, supply] }))
+  },
 
-  updateSupply: (supply) =>
-    set((s) => {
-      const updated = s.supplies.map((x) => x.id === supply.id ? supply : x)
-      save('erp_supplies', updated)
-      return { supplies: updated }
-    }),
+  updateSupply: async (supply) => {
+    await apiFetch(`/api/supplies/${supply.id}`, { method: 'PUT', body: JSON.stringify(supply) })
+    set((s) => ({ supplies: s.supplies.map((x) => x.id === supply.id ? supply : x) }))
+  },
 
-  addProduct: (product) =>
-    set((s) => {
-      const updated = [...s.products, product]
-      save('erp_products', updated)
-      return { products: updated }
-    }),
+  addProduct: async (product) => {
+    await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(product) })
+    set((s) => ({ products: [...s.products, product] }))
+  },
 
-  updateProduct: (product) =>
-    set((s) => {
-      const updated = s.products.map((x) => x.id === product.id ? product : x)
-      save('erp_products', updated)
-      return { products: updated }
-    }),
+  updateProduct: async (product) => {
+    await apiFetch(`/api/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) })
+    set((s) => ({ products: s.products.map((x) => x.id === product.id ? product : x) }))
+  },
 
-  addCustomer: (customer) =>
-    set((s) => {
-      const updated = [...s.customers, customer]
-      save('erp_customers', updated)
-      return { customers: updated }
-    }),
+  addCustomer: async (customer) => {
+    await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify(customer) })
+    set((s) => ({ customers: [...s.customers, customer] }))
+  },
 
-  addSaleOrder: (order) =>
-    set((s) => {
-      const updated = [...s.saleOrders, order]
-      save('erp_sale_orders', updated)
-      return { saleOrders: updated }
-    }),
+  addSaleOrder: async (order) => {
+    await apiFetch('/api/sale-orders', { method: 'POST', body: JSON.stringify(order) })
+    set((s) => ({ saleOrders: [...s.saleOrders, order] }))
+  },
 
-  updateSaleOrder: (order) =>
-    set((s) => {
-      const updated = s.saleOrders.map((x) => x.id === order.id ? order : x)
-      save('erp_sale_orders', updated)
-      return { saleOrders: updated }
-    }),
+  updateSaleOrder: async (order) => {
+    await apiFetch(`/api/sale-orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) })
+    set((s) => ({ saleOrders: s.saleOrders.map((x) => x.id === order.id ? order : x) }))
+  },
 
-  addProductionOrder: (order) =>
-    set((s) => {
-      const updated = [...s.productionOrders, order]
-      save('erp_production_orders', updated)
-      return { productionOrders: updated }
-    }),
+  addProductionOrder: async (order) => {
+    await apiFetch('/api/production-orders', { method: 'POST', body: JSON.stringify(order) })
+    set((s) => ({ productionOrders: [...s.productionOrders, order] }))
+  },
+
+  // ── Company settings ───────────────────────────────────────────────────────
+  saveCompanySettings: async (settings) => {
+    await apiFetch('/api/settings', { method: 'PUT', body: JSON.stringify(settings) })
+    // logo también en localStorage para carga rápida antes de la API
+    lsSet('erp_logo', settings.logo)
+    set({ companySettings: settings })
+  },
 }))

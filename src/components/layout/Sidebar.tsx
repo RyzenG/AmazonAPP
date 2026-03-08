@@ -18,7 +18,7 @@ const nav = [
 ]
 
 export default function Sidebar() {
-  const { sidebarOpen, setSidebarOpen, user, logout } = useStore()
+  const { sidebarOpen, setSidebarOpen, user, logout, companySettings } = useStore()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -30,6 +30,8 @@ export default function Sidebar() {
     ? user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : 'AD'
 
+  const logo = companySettings.logo
+
   return (
     <aside
       className={`fixed left-0 top-0 h-screen bg-slate-900 flex flex-col transition-all duration-300 z-40 ${
@@ -39,20 +41,30 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-slate-700/50">
         {sidebarOpen && (
-          <div className="flex items-center gap-2.5 animate-slideIn">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <TrendingUp size={16} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm leading-tight">ProducERP</p>
+          <div className="flex items-center gap-2.5 animate-slideIn overflow-hidden">
+            {logo ? (
+              <img src={logo} alt={companySettings.companyName} className="h-8 w-8 object-contain rounded" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <TrendingUp size={16} className="text-white" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-white font-bold text-sm leading-tight truncate">
+                {companySettings.companyName || 'ProducERP'}
+              </p>
               <p className="text-slate-400 text-xs">v1.0</p>
             </div>
           </div>
         )}
         {!sidebarOpen && (
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center mx-auto">
-            <TrendingUp size={16} className="text-white" />
-          </div>
+          logo ? (
+            <img src={logo} alt={companySettings.companyName} className="h-8 w-8 object-contain rounded mx-auto" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center mx-auto">
+              <TrendingUp size={16} className="text-white" />
+            </div>
+          )
         )}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
