@@ -1,0 +1,16 @@
+Cómo usar
+Cada vez que vayas a trabajar, necesitas correr dos terminales:
+
+# Terminal 1 – backend
+npm run server:dev
+
+# Terminal 2 – frontend
+npm run dev
+
+Si alguna vez necesitas resetear la BD a los datos iniciales:
+
+npm run setup:db
+
+Nota: Si el servidor PostgreSQL se apaga (reinicio del PC), se inicia con:
+
+pg_ctlcluster 16 main start
