@@ -223,10 +223,10 @@ export default function Dashboard() {
                   <Package size={11} /> {o.plannedQty} u
                 </span>
                 <span className="flex items-center gap-1">
-                  <Clock size={11} /> {o.plannedStart.split(' ')[0]}
+                  <Clock size={11} /> {o.plannedStart?.split(' ')[0] ?? '—'}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Users size={11} /> {o.assignedTo.split(' ')[0]}
+                  <Users size={11} /> {o.assignedTo?.split(' ')[0] ?? '—'}
                 </span>
               </div>
               {o.status === 'in_progress' && (
