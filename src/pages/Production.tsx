@@ -47,7 +47,7 @@ function OrderCard({ order }: { order: ProductionOrder }) {
           {[
             { label: 'Cantidad', val: `${order.plannedQty} u` },
             { label: 'Costo est.', val: `$${order.estimatedCost}` },
-            { label: 'Responsable', val: order.assignedTo.split(' ')[0] },
+            { label: 'Responsable', val: order.assignedTo?.split(' ')[0] ?? '—' },
           ].map((item) => (
             <div key={item.label} className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2 text-center">
               <p className="text-xs text-slate-400 dark:text-gray-400">{item.label}</p>

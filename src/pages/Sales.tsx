@@ -216,8 +216,8 @@ export default function Sales() {
   const [detail, setDetail]         = useState<SaleOrder | null>(null)
 
   const filtered = saleOrders.filter((o) => {
-    const matchSearch = o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-                        o.customer.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
+                        (o.customer ?? '').toLowerCase().includes(search.toLowerCase())
     const matchStatus = statusFilter === 'all' || o.status === statusFilter || o.paymentStatus === statusFilter
     return matchSearch && matchStatus
   })
