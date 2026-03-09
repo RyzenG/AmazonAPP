@@ -40,7 +40,7 @@ export default function Login() {
             <img
               src={companySettings.logo}
               alt={companySettings.companyName}
-              className="h-24 w-auto object-contain mb-3"
+              className="h-40 w-auto object-contain mb-3"
             />
           ) : (
             <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-3 shadow-lg">
