@@ -6,8 +6,10 @@ const router = Router()
 router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, email, phone, address, city, created_at AS "createdAt",
-              total_orders AS "totalOrders", total_spent::float AS "totalSpent", status
+      `SELECT id, code, name, company, email, phone, city, segment,
+              total_purchases::float AS "totalPurchases",
+              to_char(last_purchase, 'YYYY-MM-DD') AS "lastPurchase",
+              is_active AS "isActive"
        FROM customers ORDER BY name`
     )
     res.json(rows)
@@ -17,12 +19,24 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { id, name, email, phone, address, city, createdAt, totalOrders, totalSpent, status } = req.body
+  const { id, code, name, company, email, phone, city, segment,
+          totalPurchases, lastPurchase, isActive } = req.body
   try {
     const { rows } = await pool.query(
-      `INSERT INTO customers (id, name, email, phone, address, city, created_at, total_orders, total_spent, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [id, name, email, phone, address, city, createdAt, totalOrders ?? 0, totalSpent ?? 0, status ?? 'active']
+      `INSERT INTO customers
+         (id, code, name, company, email, phone, city, segment,
+          total_purchases, last_purchase, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING
+         id, code, name, company, email, phone, city, segment,
+         total_purchases::float AS "totalPurchases",
+         to_char(last_purchase, 'YYYY-MM-DD') AS "lastPurchase",
+         is_active AS "isActive"`,
+      [
+        id, code ?? null, name, company ?? null, email ?? null,
+        phone ?? null, city ?? null, segment ?? 'regular',
+        totalPurchases ?? 0, lastPurchase ?? null, isActive ?? true,
+      ]
     )
     res.status(201).json(rows[0])
   } catch (e) {

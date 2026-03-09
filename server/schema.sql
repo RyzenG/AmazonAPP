@@ -46,17 +46,27 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
 
 -- Clientes
 CREATE TABLE IF NOT EXISTS customers (
-  id          TEXT PRIMARY KEY,
-  name        TEXT NOT NULL,
-  email       TEXT,
-  phone       TEXT,
-  address     TEXT,
-  city        TEXT,
-  created_at  DATE,
-  total_orders INTEGER DEFAULT 0,
-  total_spent  NUMERIC DEFAULT 0,
-  status      TEXT DEFAULT 'active'
+  id              TEXT PRIMARY KEY,
+  code            TEXT,
+  name            TEXT NOT NULL,
+  company         TEXT,
+  email           TEXT,
+  phone           TEXT,
+  address         TEXT,
+  city            TEXT,
+  segment         TEXT DEFAULT 'regular',
+  total_purchases NUMERIC DEFAULT 0,
+  last_purchase   DATE,
+  is_active       BOOLEAN DEFAULT TRUE
 );
+
+-- Migración: agrega columnas faltantes si la tabla ya existía
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS code            TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS company         TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS segment         TEXT DEFAULT 'regular';
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_purchases NUMERIC DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_purchase   DATE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active       BOOLEAN DEFAULT TRUE;
 
 -- Órdenes de producción
 CREATE TABLE IF NOT EXISTS production_orders (
