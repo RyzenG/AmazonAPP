@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Factory, ShoppingCart,
   Users, BarChart3, BookOpen, Settings, ChevronLeft, ChevronRight,
-  TrendingUp, LogOut,
+  Leaf, LogOut,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 
@@ -34,26 +34,26 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen bg-slate-900 flex flex-col transition-all duration-300 z-40 ${
+      className={`fixed left-0 top-0 h-screen bg-amazonia-900 flex flex-col transition-all duration-300 z-40 ${
         sidebarOpen ? 'w-60' : 'w-16'
       }`}
     >
       {/* Logo */}
-      <div className="flex items-center justify-between px-4 h-16 border-b border-slate-700/50">
+      <div className="flex items-center justify-between px-4 h-16 border-b border-amazonia-800/60">
         {sidebarOpen && (
           <div className="flex items-center gap-2.5 animate-slideIn overflow-hidden">
             {logo ? (
-              <img src={logo} alt={companySettings.companyName} className="h-8 w-8 object-contain rounded" />
+              <img src={logo} alt={companySettings.companyName} className="h-9 w-9 object-contain rounded" />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={16} className="text-white" />
+              <div className="w-9 h-9 rounded-lg bg-amazonia-700 flex items-center justify-center flex-shrink-0">
+                <Leaf size={18} className="text-white" />
               </div>
             )}
             <div className="min-w-0">
               <p className="text-white font-bold text-sm leading-tight truncate">
-                {companySettings.companyName || 'ProducERP'}
+                {companySettings.companyName || 'Amazonia ERP'}
               </p>
-              <p className="text-slate-400 text-xs">v1.0</p>
+              <p className="text-amazonia-400 text-xs">v1.0</p>
             </div>
           </div>
         )}
@@ -61,14 +61,14 @@ export default function Sidebar() {
           logo ? (
             <img src={logo} alt={companySettings.companyName} className="h-8 w-8 object-contain rounded mx-auto" />
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center mx-auto">
-              <TrendingUp size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-lg bg-amazonia-700 flex items-center justify-center mx-auto">
+              <Leaf size={16} className="text-white" />
             </div>
           )
         )}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-slate-400 hover:text-white transition-colors ml-auto"
+          className="text-amazonia-400 hover:text-white transition-colors ml-auto"
         >
           {sidebarOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
@@ -81,7 +81,7 @@ export default function Sidebar() {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'active' : 'text-slate-400 hover:text-white'}`
+              `sidebar-link ${isActive ? 'active' : 'text-amazonia-300 hover:text-white'}`
             }
             title={!sidebarOpen ? label : undefined}
           >
@@ -92,21 +92,21 @@ export default function Sidebar() {
       </nav>
 
       {/* User + Logout */}
-      <div className={`px-3 py-4 border-t border-slate-700/50 ${sidebarOpen ? '' : 'flex flex-col items-center gap-2'}`}>
+      <div className={`px-3 py-4 border-t border-amazonia-800/60 ${sidebarOpen ? '' : 'flex flex-col items-center gap-2'}`}>
         <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
-          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-amazonia-600 flex items-center justify-center flex-shrink-0">
             <span className="text-white text-xs font-bold">{initials}</span>
           </div>
           {sidebarOpen && (
             <div className="animate-slideIn min-w-0 flex-1">
               <p className="text-white text-sm font-medium truncate">{user?.name ?? 'Administrador'}</p>
-              <p className="text-slate-400 text-xs truncate">{user?.email ?? 'admin@empresa.com'}</p>
+              <p className="text-amazonia-400 text-xs truncate">{user?.email ?? 'admin@empresa.com'}</p>
             </div>
           )}
           {sidebarOpen && (
             <button
               onClick={handleLogout}
-              className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+              className="text-amazonia-400 hover:text-red-400 transition-colors flex-shrink-0"
               title="Cerrar sesión"
             >
               <LogOut size={16} />
@@ -116,7 +116,7 @@ export default function Sidebar() {
         {!sidebarOpen && (
           <button
             onClick={handleLogout}
-            className="text-slate-400 hover:text-red-400 transition-colors"
+            className="text-amazonia-400 hover:text-red-400 transition-colors"
             title="Cerrar sesión"
           >
             <LogOut size={16} />

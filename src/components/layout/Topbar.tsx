@@ -23,7 +23,7 @@ export default function Topbar({ title }: { title?: string }) {
         <div className="relative hidden sm:block">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            className="pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 border border-slate-200 dark:border-gray-600 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="pl-9 pr-4 py-2 text-sm bg-slate-50 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 border border-slate-200 dark:border-gray-600 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-amazonia-600 focus:border-transparent"
             placeholder="Buscar producto, cliente, orden..."
           />
         </div>
@@ -60,13 +60,13 @@ export default function Topbar({ title }: { title?: string }) {
             <div className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xl z-50 animate-fadeIn">
               <div className="px-4 py-3 border-b border-slate-100 dark:border-gray-700 flex items-center justify-between">
                 <p className="font-semibold text-sm text-slate-800 dark:text-gray-100">
-                  Notificaciones {unread > 0 && <span className="text-blue-600 dark:text-blue-400">({unread})</span>}
+                  Notificaciones {unread > 0 && <span className="text-amazonia-600 dark:text-amazonia-400">({unread})</span>}
                 </p>
                 <div className="flex items-center gap-2">
                   {unread > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      className="text-xs text-amazonia-600 dark:text-amazonia-400 hover:underline flex items-center gap-1"
                       title="Marcar todo como leído"
                     >
                       <Check size={12} /> Leído
@@ -104,7 +104,7 @@ export default function Topbar({ title }: { title?: string }) {
                         </p>
                       </div>
                       {!n.read && (
-                        <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1" />
+                        <span className="w-2 h-2 bg-amazonia-500 rounded-full flex-shrink-0 mt-1" />
                       )}
                     </div>
                   ))
