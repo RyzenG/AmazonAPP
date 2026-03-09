@@ -31,6 +31,7 @@ async function migrate() {
       ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS order_number   TEXT;
       ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
       ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS cost NUMERIC NOT NULL DEFAULT 0;
+      ALTER TABLE supplies ADD COLUMN IF NOT EXISTS sku TEXT;
       CREATE TABLE IF NOT EXISTS audit_log (
         id          SERIAL PRIMARY KEY,
         user_name   TEXT NOT NULL DEFAULT 'Sistema',
