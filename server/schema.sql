@@ -1,6 +1,7 @@
 -- Insumos / Inventario
 CREATE TABLE IF NOT EXISTS supplies (
   id          TEXT PRIMARY KEY,
+  sku         TEXT,
   name        TEXT NOT NULL,
   category    TEXT NOT NULL,
   stock       NUMERIC NOT NULL DEFAULT 0,
@@ -10,6 +11,9 @@ CREATE TABLE IF NOT EXISTS supplies (
   supplier    TEXT,
   last_update DATE
 );
+
+-- Migración: agrega columna sku si la tabla ya existía sin ella
+ALTER TABLE supplies ADD COLUMN IF NOT EXISTS sku TEXT;
 
 -- Productos del catálogo
 CREATE TABLE IF NOT EXISTS products (

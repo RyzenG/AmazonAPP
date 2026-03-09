@@ -84,7 +84,8 @@ function MovementModal({ supply, onClose }: { supply: Supply; onClose: () => voi
 function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void }) {
   const { addSupply, updateSupply } = useStore()
   const [form, setForm] = useState<Partial<Supply>>(supply ?? {
-    sku: `INS-${String(Date.now()).slice(-3)}`, name: '', category: '', unit: 'kg',
+    sku: `INS-${crypto.randomUUID().replace(/-/g,'').slice(0,8).toUpperCase()}`,
+    name: '', category: '', unit: 'kg',
     stock: 0, minStock: 0, cost: 0, supplier: '',
   })
 
@@ -92,7 +93,7 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
     if (!form.name) return
     const s = form as Supply
     if (supply) { updateSupply({ ...supply, ...s }) } else {
-      addSupply({ ...s, id: `s${Date.now()}` })
+      addSupply({ ...s, id: crypto.randomUUID() })
     }
     onClose()
   }

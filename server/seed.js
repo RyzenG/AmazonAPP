@@ -38,23 +38,23 @@ async function run() {
 
     console.log('🌱 Insertando datos iniciales...')
 
-    // Supplies
+    // Supplies  [id, sku, name, category, stock, min_stock, unit, cost, supplier]
     const supplies = [
-      ['s1','Harina de trigo','Harinas',45,20,'kg',1.20,'Molinos SA'],
-      ['s2','Azúcar blanca','Azúcares',32,15,'kg',0.90,'Dulcería Norte'],
-      ['s3','Mantequilla','Lácteos',8,10,'kg',4.50,'Lácteos del Sur'],
-      ['s4','Huevos','Proteínas',120,50,'u',0.18,'Granja El Sol'],
-      ['s5','Leche entera','Lácteos',20,10,'L',1.10,'Lácteos del Sur'],
-      ['s6','Cacao en polvo','Saborizantes',5,8,'kg',6.80,'CacaoShop'],
-      ['s7','Levadura seca','Leudantes',3,2,'kg',8.50,'BioLev'],
-      ['s8','Vainilla líquida','Saborizantes',500,200,'mL',0.03,'AromaShop'],
-      ['s9','Sal fina','Condimentos',12,5,'kg',0.40,'Salinera'],
-      ['s10','Aceite vegetal','Aceites',15,8,'L',2.20,'AceitesPro'],
+      ['s1','INS-001','Harina de trigo','Harinas',45,20,'kg',1.20,'Molinos SA'],
+      ['s2','INS-002','Azúcar blanca','Azúcares',32,15,'kg',0.90,'Dulcería Norte'],
+      ['s3','INS-003','Mantequilla','Lácteos',8,10,'kg',4.50,'Lácteos del Sur'],
+      ['s4','INS-004','Huevos','Proteínas',120,50,'u',0.18,'Granja El Sol'],
+      ['s5','INS-005','Leche entera','Lácteos',20,10,'L',1.10,'Lácteos del Sur'],
+      ['s6','INS-006','Cacao en polvo','Saborizantes',5,8,'kg',6.80,'CacaoShop'],
+      ['s7','INS-007','Levadura seca','Leudantes',3,2,'kg',8.50,'BioLev'],
+      ['s8','INS-008','Vainilla líquida','Saborizantes',500,200,'mL',0.03,'AromaShop'],
+      ['s9','INS-009','Sal fina','Condimentos',12,5,'kg',0.40,'Salinera'],
+      ['s10','INS-010','Aceite vegetal','Aceites',15,8,'L',2.20,'AceitesPro'],
     ]
     for (const s of supplies) {
       await client.query(
-        `INSERT INTO supplies (id,name,category,stock,min_stock,unit,cost,supplier)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
+        `INSERT INTO supplies (id,sku,name,category,stock,min_stock,unit,cost,supplier)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
         s
       )
     }

@@ -7,7 +7,7 @@ const router = Router()
 router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT id, name, category, stock::float, min_stock::float AS "minStock", unit, cost::float, supplier, last_update AS "lastUpdate" FROM supplies ORDER BY name'
+      'SELECT id, COALESCE(sku, id) AS sku, name, category, stock::float, min_stock::float AS "minStock", unit, cost::float, supplier, last_update AS "lastUpdate" FROM supplies ORDER BY name'
     )
     res.json(rows)
   } catch (e) {
@@ -16,12 +16,12 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { id, name, category, stock, minStock, unit, cost, supplier, lastUpdate } = req.body
+  const { id, sku, name, category, stock, minStock, unit, cost, supplier, lastUpdate } = req.body
   try {
     const { rows } = await pool.query(
-      `INSERT INTO supplies (id, name, category, stock, min_stock, unit, cost, supplier, last_update)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [id, name, category, stock, minStock, unit, cost, supplier, lastUpdate]
+      `INSERT INTO supplies (id, sku, name, category, stock, min_stock, unit, cost, supplier, last_update)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *, COALESCE(sku, id) AS sku`,
+      [id, sku ?? id, name, category, stock, minStock, unit, cost, supplier, lastUpdate]
     )
     const u = getUser(req)
     await log({ userName: u.name, userEmail: u.email, action: 'crear', entity: 'Insumo', entityId: id, entityName: name })
@@ -32,12 +32,12 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { name, category, stock, minStock, unit, cost, supplier, lastUpdate } = req.body
+  const { sku, name, category, stock, minStock, unit, cost, supplier, lastUpdate } = req.body
   try {
     const { rows } = await pool.query(
-      `UPDATE supplies SET name=$1, category=$2, stock=$3, min_stock=$4, unit=$5, cost=$6, supplier=$7, last_update=$8
-       WHERE id=$9 RETURNING *`,
-      [name, category, stock, minStock, unit, cost, supplier, lastUpdate, req.params.id]
+      `UPDATE supplies SET sku=$1, name=$2, category=$3, stock=$4, min_stock=$5, unit=$6, cost=$7, supplier=$8, last_update=$9
+       WHERE id=$10 RETURNING *, COALESCE(sku, id) AS sku`,
+      [sku, name, category, stock, minStock, unit, cost, supplier, lastUpdate, req.params.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
     const u = getUser(req)
