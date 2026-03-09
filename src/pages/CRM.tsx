@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin } from 'lucide-react'
+import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer } from '../data/mockData'
 
@@ -82,10 +82,28 @@ function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () =
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
-          <Mail size={11} /><span className="truncate">{customer.email}</span>
+          <Mail size={11} />
+          <span className="truncate flex-1">{customer.email}</span>
+          {customer.email && (
+            <a href={`mailto:${customer.email}`} onClick={(e) => e.stopPropagation()}
+              title="Enviar email"
+              className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500 hover:text-blue-600 transition-colors">
+              <Send size={11} />
+            </a>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
-          <Phone size={11} /><span>{customer.phone}</span>
+          <Phone size={11} />
+          <span className="flex-1">{customer.phone}</span>
+          {customer.phone && (
+            <a href={`https://wa.me/${customer.phone.replace(/\D/g,'')}`}
+              target="_blank" rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Abrir en WhatsApp"
+              className="p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/30 text-green-500 hover:text-green-600 transition-colors">
+              <MessageCircle size={11} />
+            </a>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
           <MapPin size={11} /><span>{customer.city}</span>
@@ -213,21 +231,51 @@ export default function CRM() {
               {/* Contact */}
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Contacto</h4>
-                {[
-                  [Mail,   'Email',     selected.email],
-                  [Phone,  'Teléfono',  selected.phone],
-                  [MapPin, 'Ciudad',    selected.city],
-                ].map(([Icon, label, value]: any) => (
-                  <div key={label} className="flex items-center gap-3 text-sm">
-                    <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
-                      <Icon size={14} className="text-slate-400 dark:text-gray-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 dark:text-gray-500">{label}</p>
-                      <p className="text-slate-700 dark:text-gray-200 font-medium">{value}</p>
-                    </div>
+                {/* Email */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
+                    <Mail size={14} className="text-slate-400 dark:text-gray-400" />
                   </div>
-                ))}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Email</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium truncate">{selected.email}</p>
+                  </div>
+                  {selected.email && (
+                    <a href={`mailto:${selected.email}`}
+                      title="Enviar email"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-medium transition-colors flex-shrink-0">
+                      <Send size={12} /> Email
+                    </a>
+                  )}
+                </div>
+                {/* Teléfono */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
+                    <Phone size={14} className="text-slate-400 dark:text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Teléfono</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium">{selected.phone}</p>
+                  </div>
+                  {selected.phone && (
+                    <a href={`https://wa.me/${selected.phone.replace(/\D/g,'')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      title="Abrir en WhatsApp"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 text-xs font-medium transition-colors flex-shrink-0">
+                      <MessageCircle size={12} /> WhatsApp
+                    </a>
+                  )}
+                </div>
+                {/* Ciudad */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
+                    <MapPin size={14} className="text-slate-400 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Ciudad</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium">{selected.city}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Purchases stats */}
