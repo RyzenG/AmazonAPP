@@ -112,9 +112,16 @@ if (getDarkMode()) document.documentElement.classList.add('dark')
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
+function getUserHeader(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('erp_auth')
+    return raw ? { 'x-user': raw } : {}
+  } catch { return {} }
+}
+
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getUserHeader() },
     ...options,
   })
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`)

@@ -11,6 +11,7 @@ import saleOrdersRouter     from './routes/saleOrders.js'
 import recipesRouter        from './routes/recipes.js'
 import settingsRouter       from './routes/settings.js'
 import resetRouter          from './routes/reset.js'
+import auditLogRouter       from './routes/auditLog.js'
 
 dotenv.config()
 
@@ -27,6 +28,17 @@ async function migrate() {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_purchases NUMERIC DEFAULT 0;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_purchase   DATE;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active       BOOLEAN DEFAULT TRUE;
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id          SERIAL PRIMARY KEY,
+        user_name   TEXT NOT NULL DEFAULT 'Sistema',
+        user_email  TEXT NOT NULL DEFAULT '',
+        action      TEXT NOT NULL,
+        entity      TEXT NOT NULL,
+        entity_id   TEXT,
+        entity_name TEXT,
+        details     TEXT,
+        created_at  TIMESTAMP DEFAULT NOW()
+      );
     `)
     console.log('✅ Migrations OK')
   } catch (e) {
@@ -46,6 +58,7 @@ app.use('/api/sale-orders',       saleOrdersRouter)
 app.use('/api/recipes',           recipesRouter)
 app.use('/api/settings',          settingsRouter)
 app.use('/api/reset',             resetRouter)
+app.use('/api/audit',             auditLogRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

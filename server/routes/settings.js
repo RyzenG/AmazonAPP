@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { pool } from '../db.js'
+import { log, getUser } from '../audit.js'
 
 const router = Router()
 
@@ -28,6 +29,8 @@ router.put('/', async (req, res) => {
        RETURNING *`,
       [companyName, slogan, email, phone, address, currency, timezone, logo ?? null]
     )
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'editar', entity: 'Configuración', entityName: 'Datos de empresa' })
     res.json(rows[0])
   } catch (e) {
     res.status(500).json({ error: e.message })

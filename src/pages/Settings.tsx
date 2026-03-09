@@ -1,17 +1,36 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 const TAB_ICONS: Record<string, any> = {
   empresa: Building, usuarios: Users, pagos: CreditCard,
-  impuestos: Percent, notificaciones: Bell, seguridad: Shield,
+  impuestos: Percent, notificaciones: Bell, seguridad: Shield, auditoria: ClipboardList,
 }
 
-const tabs = ['empresa','usuarios','pagos','impuestos','notificaciones','seguridad']
+const tabs = ['empresa','usuarios','pagos','impuestos','notificaciones','seguridad','auditoria']
 const TAB_LABELS: Record<string, string> = {
   empresa:'Empresa', usuarios:'Usuarios y roles', pagos:'Métodos de pago',
-  impuestos:'Impuestos', notificaciones:'Notificaciones', seguridad:'Seguridad',
+  impuestos:'Impuestos', notificaciones:'Notificaciones', seguridad:'Seguridad', auditoria:'Auditoría',
+}
+
+interface AuditEntry {
+  id: number
+  userName: string
+  userEmail: string
+  action: string
+  entity: string
+  entityId: string | null
+  entityName: string | null
+  details: string | null
+  createdAt: string
+}
+
+const ACTION_BADGE: Record<string, string> = {
+  crear:        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  editar:       'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  eliminar:     'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  restablecer:  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 }
 
 const USERS = [
@@ -37,8 +56,25 @@ export default function Settings() {
   const [showResetModal, setShowResetModal] = useState(false)
   const [resetting, setResetting]       = useState(false)
   const [resetConfirmText, setResetConfirmText] = useState('')
+  const [auditLog, setAuditLog]         = useState<AuditEntry[]>([])
+  const [auditSearch, setAuditSearch]   = useState('')
+  const [auditLoading, setAuditLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+
+  const loadAudit = async () => {
+    setAuditLoading(true)
+    try {
+      const data = await fetch('/api/audit?limit=200').then((r) => r.json())
+      setAuditLog(Array.isArray(data) ? data : [])
+    } catch { /* ignore */ } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'auditoria') loadAudit()
+  }, [activeTab])
 
   const { companySettings, saveCompanySettings, factoryReset } = useStore()
 
@@ -427,6 +463,82 @@ export default function Settings() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'auditoria' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+                  <ClipboardList size={18} /> Registro de auditoría
+                </h2>
+                <button onClick={loadAudit} disabled={auditLoading}
+                  className="btn btn-secondary flex items-center gap-2 text-xs">
+                  <RefreshCw size={13} className={auditLoading ? 'animate-spin' : ''} />
+                  Actualizar
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input className="input pl-8 text-sm" placeholder="Buscar por usuario, entidad o acción..."
+                  value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-gray-700">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-200 dark:border-gray-700">
+                      {['Fecha y hora','Usuario','Acción','Módulo','Registro','Detalle'].map((h) => (
+                        <th key={h} className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 dark:text-gray-400 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLog
+                      .filter((e) => {
+                        const q = auditSearch.toLowerCase()
+                        return !q || e.userName.toLowerCase().includes(q) ||
+                          e.userEmail.toLowerCase().includes(q) ||
+                          e.entity.toLowerCase().includes(q) ||
+                          e.action.toLowerCase().includes(q) ||
+                          (e.entityName ?? '').toLowerCase().includes(q)
+                      })
+                      .map((entry) => (
+                        <tr key={entry.id} className="border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/40 transition-colors">
+                          <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500 dark:text-gray-400">
+                            {new Date(entry.createdAt).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' })}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-slate-700 dark:text-gray-200 text-xs">{entry.userName}</p>
+                            <p className="text-slate-400 dark:text-gray-500 text-xs">{entry.userEmail}</p>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ACTION_BADGE[entry.action] ?? 'bg-slate-100 text-slate-600'}`}>
+                              {entry.action}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-xs text-slate-600 dark:text-gray-300 whitespace-nowrap">{entry.entity}</td>
+                          <td className="px-3 py-2.5 text-xs text-slate-700 dark:text-gray-200">{entry.entityName ?? '—'}</td>
+                          <td className="px-3 py-2.5 text-xs text-slate-400 dark:text-gray-500">{entry.details ?? '—'}</td>
+                        </tr>
+                      ))}
+                    {auditLog.length === 0 && !auditLoading && (
+                      <tr><td colSpan={6} className="text-center py-10 text-slate-400 dark:text-gray-600 text-sm">
+                        Sin registros de auditoría
+                      </td></tr>
+                    )}
+                    {auditLoading && (
+                      <tr><td colSpan={6} className="text-center py-10 text-slate-400 dark:text-gray-600 text-sm">
+                        Cargando...
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-400 dark:text-gray-500">Mostrando los últimos 200 registros</p>
             </div>
           )}
 

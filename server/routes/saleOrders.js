@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { pool } from '../db.js'
+import { log, getUser } from '../audit.js'
 
 const router = Router()
 
@@ -47,6 +48,8 @@ router.post('/', async (req, res) => {
       }
     }
     await client.query('COMMIT')
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'crear', entity: 'Venta', entityId: id, entityName: `Orden ${id} — ${customerName}` })
     res.status(201).json({ id })
   } catch (e) {
     await client.query('ROLLBACK')
@@ -57,13 +60,16 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { status, paymentMethod } = req.body
+  const { status, paymentMethod, paymentStatus } = req.body
   try {
     const { rows } = await pool.query(
-      `UPDATE sale_orders SET status=$1, payment_method=$2 WHERE id=$3 RETURNING id`,
+      `UPDATE sale_orders SET status=$1, payment_method=$2 WHERE id=$3 RETURNING id, customer_name AS "customerName"`,
       [status, paymentMethod, req.params.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const u = getUser(req)
+    const detail = [status && `estado → ${status}`, paymentStatus && `pago → ${paymentStatus}`].filter(Boolean).join(', ')
+    await log({ userName: u.name, userEmail: u.email, action: 'editar', entity: 'Venta', entityId: req.params.id, entityName: rows[0].customerName, details: detail || null })
     res.json(rows[0])
   } catch (e) {
     res.status(500).json({ error: e.message })

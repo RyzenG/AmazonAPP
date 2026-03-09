@@ -122,3 +122,16 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Auditoría de cambios
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          SERIAL PRIMARY KEY,
+  user_name   TEXT NOT NULL DEFAULT 'Sistema',
+  user_email  TEXT NOT NULL DEFAULT '',
+  action      TEXT NOT NULL,   -- 'crear' | 'editar' | 'eliminar' | 'restablecer'
+  entity      TEXT NOT NULL,   -- 'Insumo' | 'Producto' | 'Cliente' | etc.
+  entity_id   TEXT,
+  entity_name TEXT,
+  details     TEXT,
+  created_at  TIMESTAMP DEFAULT NOW()
+);
