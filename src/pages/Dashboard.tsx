@@ -7,9 +7,8 @@ import {
   AlertTriangle, ShoppingCart, DollarSign, Users, Clock,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { salesChartData, topProductsData, revenueByCategory } from '../data/mockData'
 
-const PIE_COLORS = ['#2563eb', '#0f766e', '#f59e0b', '#dc2626', '#7c3aed']
+const PIE_COLORS = ['#2563eb', '#0f766e', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d']
 
 function KPICard({
   icon: Icon, label, value, sub, trend, color,
@@ -54,16 +53,68 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
-  const { supplies, saleOrders, productionOrders, darkMode } = useStore()
+  const { supplies, saleOrders, productionOrders, products, darkMode } = useStore()
 
   const lowStock    = supplies.filter((s) => s.stock < s.minStock)
   const pendingOrds = saleOrders.filter((o) => o.status === 'pending' || o.status === 'processing')
   const inProd      = productionOrders.filter((o) => o.status === 'in_progress')
-  const todaySales  = saleOrders.reduce((a, o) => a + o.total, 0)
+  const totalSales  = saleOrders.reduce((a, o) => a + o.total, 0)
   const recentSales = [...saleOrders].reverse().slice(0, 5)
 
   const gridColor = darkMode ? '#374151' : '#f1f5f9'
   const tickColor = darkMode ? '#9ca3af' : '#94a3b8'
+
+  // ── Sales chart: group orders by date over last 30 days ──────────────────
+  const salesChartData = (() => {
+    const days: { day: string; ventas: number }[] = []
+    const now = new Date()
+    const salesByDay: Record<string, number> = {}
+    saleOrders.forEach((o) => {
+      const d = o.date?.slice(0, 10) ?? ''
+      if (d) salesByDay[d] = (salesByDay[d] ?? 0) + o.total
+    })
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+      days.push({ day: label, ventas: salesByDay[key] ?? 0 })
+    }
+    return days
+  })()
+
+  // ── Top products: sum units sold per product name ────────────────────────
+  const topProductsData = (() => {
+    const qty: Record<string, number> = {}
+    saleOrders.forEach((o) =>
+      (o.items ?? []).forEach((item: any) => {
+        const name = item.product ?? item.productName ?? ''
+        if (name) qty[name] = (qty[name] ?? 0) + (item.qty ?? item.quantity ?? 0)
+      })
+    )
+    return Object.entries(qty)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, ventas]) => ({ name, ventas }))
+  })()
+
+  // ── Revenue by category: join items → products → category ───────────────
+  const revenueByCategory = (() => {
+    const rev: Record<string, number> = {}
+    const productMap = Object.fromEntries(products.map((p) => [p.id, p]))
+    saleOrders.forEach((o) =>
+      (o.items ?? []).forEach((item: any) => {
+        const prod = productMap[item.productId]
+        const cat = prod?.category ?? 'Otros'
+        rev[cat] = (rev[cat] ?? 0) + (item.subtotal ?? 0)
+      })
+    )
+    const total = Object.values(rev).reduce((a, v) => a + v, 0)
+    if (total === 0) return []
+    return Object.entries(rev)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, v]) => ({ name, value: Math.round(v / total * 100) }))
+  })()
 
   const customTooltip = ({ active, payload, label }: any) => {
     if (active && payload?.length) {
@@ -105,7 +156,7 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard icon={DollarSign}   label="Ventas del mes"        value={`$${todaySales.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')}`} sub="+18% vs mes anterior"  trend="up"   color="bg-blue-600" />
+        <KPICard icon={DollarSign}   label="Ventas totales"        value={`$${totalSales.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')}`} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
         <KPICard icon={Factory}      label="En producción"         value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
         <KPICard icon={Package}      label="Alertas de inventario" value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
         <KPICard icon={ShoppingCart} label="Pedidos activos"       value={`${pendingOrds.length}`} sub="Requieren atención" color="bg-violet-600" />
@@ -120,7 +171,7 @@ export default function Dashboard() {
               <h2 className="font-semibold text-slate-800 dark:text-white">Ventas — Últimos 30 días</h2>
               <p className="text-xs text-slate-500 dark:text-gray-400">Comparado con meta diaria</p>
             </div>
-            <span className="badge badge-green">+18% mes</span>
+            {saleOrders.length === 0 && <span className="text-xs text-slate-400 dark:text-gray-500">Sin ventas aún</span>}
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={salesChartData}>
@@ -139,28 +190,37 @@ export default function Dashboard() {
         <div className="card p-5">
           <h2 className="font-semibold text-slate-800 dark:text-white mb-1">Ingresos por categoría</h2>
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">Distribución del mes</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={revenueByCategory} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
-                   dataKey="value" paddingAngle={3}>
-                {revenueByCategory.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+          {revenueByCategory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 dark:text-gray-600 text-sm gap-2">
+              <ShoppingCart size={32} className="opacity-30" />
+              <span>Sin ventas registradas</span>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={revenueByCategory} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                       dataKey="value" paddingAngle={3}>
+                    {revenueByCategory.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v}%`, 'Participación']} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-2">
+                {revenueByCategory.map((d, i) => (
+                  <div key={d.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i] }} />
+                      <span className="text-slate-600 dark:text-gray-300">{d.name}</span>
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-gray-200">{d.value}%</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip formatter={(v) => [`${v}%`, 'Participación']} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-1.5 mt-2">
-            {revenueByCategory.map((d, i) => (
-              <div key={d.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i] }} />
-                  <span className="text-slate-600 dark:text-gray-300">{d.name}</span>
-                </div>
-                <span className="font-semibold text-slate-700 dark:text-gray-200">{d.value}%</span>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -170,16 +230,23 @@ export default function Dashboard() {
         <div className="card p-5">
           <h2 className="font-semibold text-slate-800 dark:text-white mb-1">Productos más vendidos</h2>
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">Unidades este mes</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={topProductsData} layout="vertical" barSize={10}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-              <XAxis type="number" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize:11, fill:tickColor }} tickLine={false}
-                     axisLine={false} width={110} />
-              <Tooltip formatter={(v) => [`${v} u`, 'Vendidas']} />
-              <Bar dataKey="ventas" fill="#2563eb" radius={[0,4,4,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {topProductsData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 dark:text-gray-600 text-sm gap-2">
+              <Package size={32} className="opacity-30" />
+              <span>Sin ventas registradas</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(topProductsData.length * 44, 120)}>
+              <BarChart data={topProductsData} layout="vertical" barSize={10}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize:11, fill:tickColor }} tickLine={false}
+                       axisLine={false} width={120} />
+                <Tooltip formatter={(v) => [`${v} u`, 'Vendidas']} />
+                <Bar dataKey="ventas" fill="#2563eb" radius={[0,4,4,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Recent sales */}
