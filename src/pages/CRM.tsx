@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send, Pencil, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer } from '../data/mockData'
@@ -66,8 +66,8 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
   )
 }
 
-function CustomerCard({ customer, onClick, onEdit, onDelete, canEdit, canDelete }: {
-  customer: Customer; onClick: () => void
+function CustomerCard({ customer, totalPurchases, onClick, onEdit, onDelete, canEdit, canDelete }: {
+  customer: Customer; totalPurchases: number; onClick: () => void
   onEdit: () => void; onDelete: () => void
   canEdit: boolean; canDelete: boolean
 }) {
@@ -120,7 +120,7 @@ function CustomerCard({ customer, onClick, onEdit, onDelete, canEdit, canDelete 
       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-between">
         <div>
           <p className="text-xs text-slate-400 dark:text-gray-500">Total compras</p>
-          <p className="font-bold text-slate-800 dark:text-white">${customer.totalPurchases.toLocaleString()}</p>
+          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(totalPurchases)}</p>
         </div>
         <div className="flex items-center gap-2">
           {canEdit && (
@@ -152,6 +152,19 @@ export default function CRM() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
+  // Compute totals and last purchase date from actual saleOrders
+  const customerStats = useMemo(() => {
+    const map: Record<string, { total: number; lastDate: string | null }> = {}
+    for (const order of saleOrders) {
+      if (!map[order.customerId]) map[order.customerId] = { total: 0, lastDate: null }
+      map[order.customerId].total += order.total
+      if (!map[order.customerId].lastDate || order.date > map[order.customerId].lastDate!) {
+        map[order.customerId].lastDate = order.date
+      }
+    }
+    return map
+  }, [saleOrders])
+
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
                         (c.company ?? '').toLowerCase().includes(search.toLowerCase()) ||
@@ -160,7 +173,7 @@ export default function CRM() {
     return matchSearch && matchSeg && c.isActive
   })
 
-  const totalRevenue = customers.reduce((a,c) => a + c.totalPurchases, 0)
+  const totalRevenue = Object.values(customerStats).reduce((a, s) => a + s.total, 0)
   const vipCount     = customers.filter((c) => c.segment === 'vip').length
 
   return (
@@ -218,6 +231,7 @@ export default function CRM() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((c) => (
           <CustomerCard key={c.id} customer={c}
+            totalPurchases={customerStats[c.id]?.total ?? 0}
             canEdit={canEdit('customers')} canDelete={canDelete('customers')}
             onClick={() => setSelected(c)}
             onEdit={() => { setEditCustomer(c); setShowModal(true) }}
@@ -323,11 +337,17 @@ export default function CRM() {
               <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-slate-400 dark:text-gray-400">Total compras</p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-white">${selected.totalPurchases.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-white">
+                    {formatCOP(customerStats[selected.id]?.total ?? 0)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 dark:text-gray-400">Última compra</p>
-                  <p className="font-bold text-slate-700 dark:text-gray-200">{selected.lastPurchase}</p>
+                  <p className="font-bold text-slate-700 dark:text-gray-200">
+                    {customerStats[selected.id]?.lastDate
+                      ? new Date(customerStats[selected.id].lastDate! + 'T12:00:00').toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' })
+                      : '—'}
+                  </p>
                 </div>
               </div>
 
