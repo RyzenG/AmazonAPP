@@ -22,7 +22,7 @@ export default function Login() {
     setLoading(true)
     setTimeout(() => {
       if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        login({ name: 'Administrador', email: DEMO_EMAIL, role: 'admin' })
+        login({ name: 'Administrador', email: DEMO_EMAIL, role: 'Administrador' })
         navigate('/', { replace: true })
       } else {
         setError('Correo o contraseña incorrectos')
