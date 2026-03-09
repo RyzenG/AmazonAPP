@@ -7,6 +7,7 @@ import {
   AlertTriangle, ShoppingCart, DollarSign, Users, Clock,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { formatCOP } from '../utils/currency'
 
 const PIE_COLORS = ['#2563eb', '#0f766e', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d']
 
@@ -156,7 +157,7 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard icon={DollarSign}   label="Ventas totales"        value={`$${totalSales.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')}`} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
+        <KPICard icon={DollarSign}   label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
         <KPICard icon={Factory}      label="En producción"         value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
         <KPICard icon={Package}      label="Alertas de inventario" value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
         <KPICard icon={ShoppingCart} label="Pedidos activos"       value={`${pendingOrds.length}`} sub="Requieren atención" color="bg-violet-600" />
@@ -263,7 +264,7 @@ export default function Dashboard() {
               <div key={o.id} className="grid grid-cols-4 items-center py-3 border-b border-slate-50 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/50 rounded-lg px-1 transition-colors">
                 <span className="text-xs font-mono text-blue-600 dark:text-blue-400">{o.orderNumber}</span>
                 <span className="text-xs text-slate-700 dark:text-gray-300 truncate pr-2">{o.customer}</span>
-                <span className="text-xs font-semibold text-slate-800 dark:text-white text-right">${o.total.toFixed(2)}</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-white text-right">{formatCOP(o.total)}</span>
                 <div className="flex justify-end"><StatusBadge status={o.paymentStatus} /></div>
               </div>
             ))}

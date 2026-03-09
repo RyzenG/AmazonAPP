@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Plus, Play, CheckCircle, XCircle, Clock, Factory, X, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, Play, CheckCircle, XCircle, Clock, Factory, X, ChevronDown, Trash2, BookOpen } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { ProductionOrder } from '../data/mockData'
+import { ProductionOrder, Recipe } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import { formatCOP } from '../utils/currency'
 
 const STATUS_LABELS: Record<string, string> = {
   pending:'Pendiente', in_progress:'En producción', finished:'Finalizado', cancelled:'Cancelado'
@@ -12,6 +13,8 @@ const STATUS_BADGE: Record<string, string> = {
   pending:'badge-yellow', in_progress:'badge-blue', finished:'badge-green', cancelled:'badge-red'
 }
 const PRIORITY_LABELS: Record<number, string> = { 1:'🔴 Urgente', 2:'🟠 Alta', 3:'🟡 Normal', 4:'🟢 Baja', 5:'⚪ Muy baja' }
+
+const UNITS = ['u','kg','g','lb','oz','L','mL','m','cm','mm','m²','m³','rollo','par','caja','doc','bolsa']
 
 function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onDelete: () => void; canDelete: boolean }) {
   const { updateProductionOrderStatus } = useStore()
@@ -48,7 +51,7 @@ function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onD
         <div className="grid grid-cols-3 gap-3 mt-3">
           {[
             { label: 'Cantidad', val: `${order.plannedQty} u` },
-            { label: 'Costo est.', val: `$${order.estimatedCost}` },
+            { label: 'Costo est.', val: formatCOP(order.estimatedCost) },
             { label: 'Responsable', val: order.assignedTo?.split(' ')[0] ?? '—' },
           ].map((item) => (
             <div key={item.label} className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2 text-center">
@@ -79,7 +82,7 @@ function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onD
             </div>
             {order.actualCost && (
               <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
-                <CheckCircle size={12} /><span>Costo real: ${order.actualCost}</span>
+                <CheckCircle size={12} /><span>Costo real: {formatCOP(order.actualCost)}</span>
               </div>
             )}
           </div>
@@ -149,7 +152,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
           {recipe && (
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1 animate-fadeIn">
               <p><strong>Rendimiento:</strong> {recipe.yieldQty} {recipe.yieldUnit} por lote</p>
-              <p><strong>Costo/unidad:</strong> ${recipe.costPerUnit.toFixed(2)}</p>
+              <p><strong>Costo/unidad:</strong> {formatCOP(recipe.costPerUnit)}</p>
               <p><strong>Ingredientes:</strong> {recipe.ingredients.length} insumos</p>
             </div>
           )}
@@ -171,7 +174,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
           {recipe && qty && (
             <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-3 text-xs animate-fadeIn">
               <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
-                Costo estimado total: ${(recipe.costPerUnit * parseFloat(qty || '0')).toFixed(2)}
+                Costo estimado total: {formatCOP(recipe.costPerUnit * parseFloat(qty || '0'))}
               </p>
             </div>
           )}
@@ -185,14 +188,152 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+function NewRecipeModal({ onClose }: { onClose: () => void }) {
+  const { supplies, addRecipe } = useStore()
+  const [name, setName]           = useState('')
+  const [yieldQty, setYieldQty]   = useState('1')
+  const [yieldUnit, setYieldUnit] = useState('u')
+  const [ingredients, setIngredients] = useState<{ supplyId: string; supplyName: string; qty: number; unit: string; cost: number }[]>([])
+
+  const addIngredient = () => setIngredients([...ingredients, { supplyId: '', supplyName: '', qty: 1, unit: 'u', cost: 0 }])
+  const removeIngredient = (i: number) => setIngredients(ingredients.filter((_, j) => j !== i))
+  const updateIngredient = (i: number, field: string, value: string | number) => {
+    const copy = [...ingredients]
+    if (field === 'supplyId') {
+      const s = supplies.find((x) => x.id === value)
+      copy[i] = { ...copy[i], supplyId: String(value), supplyName: s?.name ?? '', unit: s?.unit ?? 'u', cost: (copy[i].qty || 0) * (s?.cost ?? 0) }
+    } else if (field === 'qty') {
+      const supply = supplies.find((x) => x.id === copy[i].supplyId)
+      copy[i] = { ...copy[i], qty: Number(value), cost: Number(value) * (supply?.cost ?? 0) }
+    } else {
+      copy[i] = { ...copy[i], [field]: value }
+    }
+    setIngredients(copy)
+  }
+
+  const totalCost = ingredients.reduce((a, i) => a + i.cost, 0)
+  const yieldN    = parseFloat(yieldQty) || 1
+
+  const handleSave = () => {
+    if (!name.trim() || ingredients.length === 0) return
+    const recipe: Recipe = {
+      id: `rec${Date.now()}`,
+      name: name.trim(),
+      productId: '',
+      yieldQty: yieldN,
+      yieldUnit,
+      ingredients,
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      costPerUnit: parseFloat((totalCost / yieldN).toFixed(2)),
+    }
+    addRecipe(recipe)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fadeIn">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+          <h3 className="font-semibold text-slate-800 dark:text-white">Nueva receta</h3>
+          <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-5">
+          <div>
+            <label className="label">Nombre de la receta *</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Torta de chocolate" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Rendimiento (cantidad producida)</label>
+              <input className="input" type="number" min="0.01" step="0.01" value={yieldQty}
+                onChange={(e) => setYieldQty(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Unidad de rendimiento</label>
+              <select className="input" value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)}>
+                {UNITS.map((u) => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Ingredientes */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="label mb-0">Ingredientes / Insumos *</label>
+              <button className="btn btn-secondary btn-sm" onClick={addIngredient}><Plus size={12} /> Agregar</button>
+            </div>
+            {ingredients.length === 0 && (
+              <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-gray-600 rounded-lg text-slate-400 dark:text-gray-500 text-sm">
+                Agrega los insumos de esta receta
+              </div>
+            )}
+            {ingredients.map((ing, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 mb-2 items-end">
+                <div className="col-span-5">
+                  {i === 0 && <label className="label">Insumo</label>}
+                  <select className="input" value={ing.supplyId}
+                    onChange={(e) => updateIngredient(i, 'supplyId', e.target.value)}>
+                    <option value="">-- Insumo --</option>
+                    {supplies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Cant.</label>}
+                  <input className="input" type="number" min="0.001" step="0.001" value={ing.qty}
+                    onChange={(e) => updateIngredient(i, 'qty', parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Unidad</label>}
+                  <select className="input" value={ing.unit}
+                    onChange={(e) => updateIngredient(i, 'unit', e.target.value)}>
+                    {UNITS.map((u) => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Costo</label>}
+                  <p className="py-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{formatCOP(ing.cost)}</p>
+                </div>
+                <div className="col-span-1">
+                  <button onClick={() => removeIngredient(i)} className="w-8 h-9 flex items-center justify-center text-red-400 hover:text-red-600">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {ingredients.length > 0 && (
+            <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 space-y-1 animate-fadeIn">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-gray-400">Costo total</span>
+                <span className="font-bold text-slate-800 dark:text-white">{formatCOP(totalCost)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-gray-400">Costo por {yieldUnit}</span>
+                <span className="font-bold text-slate-800 dark:text-white">{formatCOP(totalCost / yieldN)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 pb-5 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-slate-100 dark:border-gray-700 pt-4">
+          <button className="btn btn-secondary flex-1" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary flex-1" onClick={handleSave}>Guardar receta</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Production() {
-  const { productionOrders, recipes, deleteProductionOrder } = useStore()
+  const { productionOrders, recipes, deleteProductionOrder, deleteRecipe } = useStore()
   const { canDelete } = usePermissions()
-  const [filter, setFilter]   = useState('all')
-  const [showModal, setShowModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'orders'|'recipes'>('orders')
-  const [deleteTarget, setDeleteTarget] = useState<ProductionOrder | null>(null)
-  const [deleting, setDeleting]         = useState(false)
+  const [filter, setFilter]         = useState('all')
+  const [showModal, setShowModal]   = useState(false)
+  const [showRecipeModal, setShowRecipeModal] = useState(false)
+  const [activeTab, setActiveTab]   = useState<'orders'|'recipes'>('orders')
+  const [deleteTarget, setDeleteTarget]       = useState<ProductionOrder | null>(null)
+  const [deleteRecipeTarget, setDeleteRecipeTarget] = useState<Recipe | null>(null)
+  const [deleting, setDeleting]               = useState(false)
 
   const filtered = filter === 'all' ? productionOrders
     : productionOrders.filter((o) => o.status === filter)
@@ -210,9 +351,16 @@ export default function Production() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Producción</h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm">Órdenes de producción y recetas</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Nueva orden
-        </button>
+        <div className="flex gap-2">
+          {activeTab === 'recipes' && (
+            <button className="btn btn-secondary" onClick={() => setShowRecipeModal(true)}>
+              <BookOpen size={16} /> Nueva receta
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={16} /> Nueva orden
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -280,15 +428,22 @@ export default function Production() {
             <div key={r.id} className="card p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-slate-800 dark:text-white">{r.name}</h3>
-                <span className="badge badge-blue">{r.yieldQty} {r.yieldUnit}</span>
+                <div className="flex items-center gap-2">
+                  <span className="badge badge-blue">{r.yieldQty} {r.yieldUnit}</span>
+                  {canDelete('production') && (
+                    <button className="text-red-400 hover:text-red-600 p-1" onClick={() => setDeleteRecipeTarget(r)}>
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-1.5">
-                {r.ingredients.map((ing) => (
-                  <div key={ing.supplyId} className="flex items-center justify-between text-xs">
+                {r.ingredients.map((ing, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-xs">
                     <span className="text-slate-600 dark:text-gray-300">{ing.supplyName}</span>
                     <div className="flex items-center gap-3">
                       <span className="text-slate-500 dark:text-gray-400">{ing.qty} {ing.unit}</span>
-                      <span className="text-slate-700 dark:text-gray-200 font-medium w-12 text-right">${ing.cost.toFixed(2)}</span>
+                      <span className="text-slate-700 dark:text-gray-200 font-medium w-20 text-right">{formatCOP(ing.cost)}</span>
                     </div>
                   </div>
                 ))}
@@ -296,19 +451,27 @@ export default function Production() {
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-gray-700 flex items-center justify-between">
                 <span className="text-xs text-slate-500 dark:text-gray-400">Costo total</span>
                 <div className="text-right">
-                  <p className="font-bold text-slate-800 dark:text-white">${r.totalCost.toFixed(2)}</p>
-                  <p className="text-xs text-slate-400 dark:text-gray-500">${r.costPerUnit.toFixed(2)} / u</p>
+                  <p className="font-bold text-slate-800 dark:text-white">{formatCOP(r.totalCost)}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500">{formatCOP(r.costPerUnit)} / {r.yieldUnit}</p>
                 </div>
               </div>
             </div>
           ))}
+          {recipes.length === 0 && (
+            <div className="col-span-2 text-center py-16 text-slate-400 dark:text-gray-600">
+              <BookOpen size={40} className="mx-auto mb-3 opacity-30" />
+              <p>No hay recetas. Crea una con el botón "Nueva receta".</p>
+            </div>
+          )}
         </div>
       )}
 
       {showModal && <NewOrderModal onClose={() => setShowModal(false)} />}
+      {showRecipeModal && <NewRecipeModal onClose={() => setShowRecipeModal(false)} />}
+
       {deleteTarget && (
         <ConfirmDelete
-          name={deleteTarget.product ?? deleteTarget.productName ?? ''}
+          name={deleteTarget.product ?? ''}
           loading={deleting}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={async () => {
@@ -316,6 +479,19 @@ export default function Production() {
             await deleteProductionOrder(deleteTarget.id)
             setDeleting(false)
             setDeleteTarget(null)
+          }}
+        />
+      )}
+      {deleteRecipeTarget && (
+        <ConfirmDelete
+          name={deleteRecipeTarget.name}
+          loading={deleting}
+          onCancel={() => setDeleteRecipeTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteRecipe(deleteRecipeTarget.id)
+            setDeleting(false)
+            setDeleteRecipeTarget(null)
           }}
         />
       )}

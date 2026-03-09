@@ -28,6 +28,9 @@ async function migrate() {
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS total_purchases NUMERIC DEFAULT 0;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_purchase   DATE;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active       BOOLEAN DEFAULT TRUE;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS order_number   TEXT;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
+      ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS cost NUMERIC NOT NULL DEFAULT 0;
       CREATE TABLE IF NOT EXISTS audit_log (
         id          SERIAL PRIMARY KEY,
         user_name   TEXT NOT NULL DEFAULT 'Sistema',

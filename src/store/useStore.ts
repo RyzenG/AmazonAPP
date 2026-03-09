@@ -76,6 +76,8 @@ interface AppState {
   deleteSaleOrder: (id: string) => Promise<void>
   addProductionOrder: (o: ProductionOrder) => Promise<void>
   deleteProductionOrder:(id: string) => Promise<void>
+  addRecipe:    (r: Recipe)  => Promise<void>
+  deleteRecipe: (id: string) => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -322,6 +324,15 @@ export const useStore = create<AppState>((set, get) => ({
   deleteProductionOrder: async (id) => {
     await apiFetch(`/api/production-orders/${id}`, { method: 'DELETE' })
     set((s) => ({ productionOrders: s.productionOrders.filter((x) => x.id !== id) }))
+  },
+
+  addRecipe: async (recipe) => {
+    await apiFetch('/api/recipes', { method: 'POST', body: JSON.stringify(recipe) })
+    set((s) => ({ recipes: [...s.recipes, recipe] }))
+  },
+  deleteRecipe: async (id) => {
+    await apiFetch(`/api/recipes/${id}`, { method: 'DELETE' })
+    set((s) => ({ recipes: s.recipes.filter((x) => x.id !== id) }))
   },
 
   // ── Factory reset ──────────────────────────────────────────────────────────

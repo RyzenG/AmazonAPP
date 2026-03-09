@@ -39,6 +39,7 @@ export interface SaleOrder {
   items: { product: string; qty: number; price: number; subtotal: number }[]
   subtotal: number; tax: number; total: number; status: string
   paymentStatus: string; paymentMethod: string; date: string; deliveryDate?: string
+  notes?: string
 }
 
 // ── Supplies ────────────────────────────────

@@ -41,8 +41,12 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
   supply_id   TEXT NOT NULL,
   supply_name TEXT NOT NULL,
   quantity    NUMERIC NOT NULL,
-  unit        TEXT NOT NULL
+  unit        TEXT NOT NULL,
+  cost        NUMERIC NOT NULL DEFAULT 0
 );
+
+-- Migración: agrega columna cost si no existe
+ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS cost NUMERIC NOT NULL DEFAULT 0;
 
 -- Clientes
 CREATE TABLE IF NOT EXISTS customers (
@@ -84,18 +88,24 @@ CREATE TABLE IF NOT EXISTS production_orders (
 
 -- Órdenes de venta
 CREATE TABLE IF NOT EXISTS sale_orders (
-  id            TEXT PRIMARY KEY,
-  customer_id   TEXT,
-  customer_name TEXT NOT NULL,
-  date          DATE NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'pending',
+  id             TEXT PRIMARY KEY,
+  order_number   TEXT,
+  customer_id    TEXT,
+  customer_name  TEXT NOT NULL,
+  date           DATE NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'pending',
+  payment_status TEXT NOT NULL DEFAULT 'pending',
   payment_method TEXT,
-  subtotal      NUMERIC DEFAULT 0,
-  tax           NUMERIC DEFAULT 0,
-  total         NUMERIC DEFAULT 0,
-  notes         TEXT,
-  created_at    TIMESTAMP DEFAULT NOW()
+  subtotal       NUMERIC DEFAULT 0,
+  tax            NUMERIC DEFAULT 0,
+  total          NUMERIC DEFAULT 0,
+  notes          TEXT,
+  created_at     TIMESTAMP DEFAULT NOW()
 );
+
+-- Migración: agrega columnas faltantes en sale_orders
+ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS order_number   TEXT;
+ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
 
 CREATE TABLE IF NOT EXISTS sale_order_items (
   id            SERIAL PRIMARY KEY,

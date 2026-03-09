@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { Customer } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import { formatCOP } from '../utils/currency'
 
 const SEG_BADGE: Record<string, string> = {
   vip:'badge-purple', mayorista:'badge-blue', regular:'badge-gray',
@@ -180,7 +181,7 @@ export default function CRM() {
           { label:'Total clientes', value:customers.length, icon:Users, color:'bg-blue-600' },
           { label:'Clientes VIP',   value:vipCount,         icon:Star,  color:'bg-violet-600' },
           { label:'Mayoristas',     value:customers.filter(c=>c.segment==='mayorista').length, icon:TrendingUp, color:'bg-teal-600' },
-          { label:'Revenue total',  value:`$${totalRevenue.toLocaleString()}`, icon:TrendingUp, color:'bg-emerald-600' },
+          { label:'Revenue total',  value: formatCOP(totalRevenue), icon:TrendingUp, color:'bg-emerald-600' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
@@ -340,7 +341,7 @@ export default function CRM() {
                       <p className="text-xs text-slate-400 dark:text-gray-500">{o.date}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-slate-800 dark:text-white">${o.total.toFixed(2)}</p>
+                      <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
                       <span className={`badge ${o.paymentStatus === 'paid' ? 'badge-green' : 'badge-yellow'} text-xs`}>
                         {o.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
                       </span>

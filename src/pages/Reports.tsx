@@ -4,6 +4,7 @@ import {
 } from 'recharts'
 import { FileText, FileSpreadsheet, TrendingUp, BarChart3, PieChart as PieIcon, ShoppingCart, Package, Factory } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { formatCOP } from '../utils/currency'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -89,12 +90,12 @@ export default function Reports() {
     const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
     const byMonth: Record<string, number> = {}
     productionOrders.forEach((o) => {
-      const date = o.startDate ?? o.plannedStart ?? ''
+      const date = o.plannedStart ?? ''
       if (!date) return
       const d = new Date(date)
       if (isNaN(d.getTime())) return
       const key = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
-      byMonth[key] = (byMonth[key] ?? 0) + (o.quantity ?? o.plannedQty ?? 0)
+      byMonth[key] = (byMonth[key] ?? 0) + (o.plannedQty ?? 0)
     })
     return Object.entries(byMonth)
       .slice(-6)
@@ -126,7 +127,7 @@ export default function Reports() {
       body: supplies.map((s) => [
         s.name, s.sku, s.category,
         `${s.stock} ${s.unit}`, `${s.minStock} ${s.unit}`,
-        `$${s.cost.toFixed(2)}`, `$${(s.stock * s.cost).toFixed(2)}`,
+        formatCOP(s.cost), formatCOP(s.stock * s.cost),
       ]),
       headStyles: { fillColor: [37, 99, 235] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -144,7 +145,7 @@ export default function Reports() {
       body: saleOrders.map((o) => [
         o.orderNumber, o.customer,
         format(new Date(o.date), 'dd/MM/yyyy'),
-        o.status, o.paymentStatus, `$${o.total.toFixed(2)}`,
+        o.status, o.paymentStatus, formatCOP(o.total),
       ]),
       headStyles: { fillColor: [5, 150, 105] },
       alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -205,9 +206,9 @@ export default function Reports() {
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:'Ingresos totales', value:`$${totalRevenue.toFixed(2)}`, icon:TrendingUp,  color:'bg-blue-600',    sub:'Todas las ventas' },
+          { label:'Ingresos totales', value: formatCOP(totalRevenue), icon:TrendingUp,  color:'bg-blue-600',    sub:'Todas las ventas' },
           { label:'Margen bruto',     value:`${grossMargin.toFixed(1)}%`,  icon:BarChart3,   color:'bg-emerald-600', sub:'Revenue - Costos' },
-          { label:'Valor inventario', value:`$${inventoryValue.toFixed(2)}`,icon:PieIcon,    color:'bg-violet-600',  sub:`${supplies.length} insumos` },
+          { label:'Valor inventario', value: formatCOP(inventoryValue),    icon:PieIcon,     color:'bg-violet-600',  sub:`${supplies.length} insumos` },
           { label:'Prod. completadas',value:productionOrders.filter(o=>o.status==='finished').length, icon:BarChart3, color:'bg-teal-600', sub:'Órdenes finalizadas' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
@@ -236,8 +237,8 @@ export default function Reports() {
               <LineChart data={salesChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis dataKey="day" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} interval={4} />
-                <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} tickFormatter={(v)=>`$${v}`} />
-                <Tooltip formatter={(v:number)=>[`$${v.toFixed(2)}`, 'Ventas']} />
+                <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} tickFormatter={(v)=>formatCOP(v)} />
+                <Tooltip formatter={(v:number)=>[formatCOP(v), 'Ventas']} />
                 <Line type="monotone" dataKey="ventas" stroke="#2563eb" strokeWidth={2.5} dot={false} name="Ventas" activeDot={{ r:5 }} />
               </LineChart>
             </ResponsiveContainer>
@@ -259,7 +260,7 @@ export default function Reports() {
                          tickFormatter={(v)=>`$${v}`} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize:11, fill:tickColor }}
                          tickLine={false} axisLine={false} width={80} />
-                  <Tooltip formatter={(v:number)=>[`$${v.toFixed(2)}`, 'Total compras']} />
+                  <Tooltip formatter={(v:number)=>[formatCOP(v), 'Total compras']} />
                   <Bar dataKey="total" fill="#7c3aed" radius={[0,4,4,0]} />
                 </BarChart>
               </ResponsiveContainer>

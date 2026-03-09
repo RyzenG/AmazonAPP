@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { Product } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import { formatCOP } from '../utils/currency'
 
 const CAT_COLORS: Record<string, string> = {
   Tortas:'badge-blue', Panes:'badge-green', Galletas:'badge-yellow',
@@ -119,11 +120,11 @@ function ProductCard({ product, onEdit, onDelete, canEdit, canDelete }: {
       <div className="grid grid-cols-3 gap-2 text-center mb-3">
         <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2">
           <p className="text-xs text-slate-400 dark:text-gray-400">Precio</p>
-          <p className="font-bold text-slate-800 dark:text-white text-sm">${product.price}</p>
+          <p className="font-bold text-slate-800 dark:text-white text-sm">{formatCOP(product.price)}</p>
         </div>
         <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-2">
           <p className="text-xs text-slate-400 dark:text-gray-400">Costo</p>
-          <p className="font-bold text-slate-600 dark:text-gray-300 text-sm">${product.cost}</p>
+          <p className="font-bold text-slate-600 dark:text-gray-300 text-sm">{formatCOP(product.cost)}</p>
         </div>
         <div className={`rounded-lg p-2 ${
           parseFloat(margin) > 40 ? 'bg-emerald-50 dark:bg-emerald-900/20'

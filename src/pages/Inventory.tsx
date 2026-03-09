@@ -4,6 +4,9 @@ import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import { formatCOP } from '../utils/currency'
+
+const UNITS = ['u','kg','g','lb','oz','L','mL','m','cm','mm','m²','m³','rollo','par','caja','doc','bolsa']
 
 function StockBar({ value, min }: { value: number; min: number }) {
   const pct = Math.min((value / (min * 2)) * 100, 100)
@@ -116,7 +119,7 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
           <div>
             <label className="label">Unidad</label>
             <select className="input" value={form.unit ?? 'kg'} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-              {['kg','g','L','mL','u','doc','caja'].map((u) => <option key={u}>{u}</option>)}
+              {UNITS.map((u) => <option key={u}>{u}</option>)}
             </select>
           </div>
           {field('stock',    'Stock actual', 'number')}
@@ -175,7 +178,7 @@ export default function Inventory() {
           { label:'Total insumos', value: supplies.length, icon: Package, color:'bg-blue-50 dark:bg-blue-900/30 text-blue-600' },
           { label:'Bajo stock',    value: lowStock,         icon: AlertTriangle, color:'bg-red-50 dark:bg-red-900/30 text-red-600' },
           { label:'Categorías',    value: categories.length - 1, icon: Package, color:'bg-teal-50 dark:bg-teal-900/30 text-teal-600' },
-          { label:'Valor inventario', value:`$${totalVal.toFixed(0)}`, icon: Package, color:'bg-violet-50 dark:bg-violet-900/30 text-violet-600' },
+          { label:'Valor inventario', value: formatCOP(totalVal), icon: Package, color:'bg-violet-50 dark:bg-violet-900/30 text-violet-600' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
@@ -240,8 +243,8 @@ export default function Inventory() {
                       {status === 'bajo' ? 'Bajo stock' : status === 'alerta' ? 'Alerta' : 'Normal'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-gray-300">${s.cost.toFixed(2)}</td>
-                  <td className="px-4 py-3 font-semibold text-slate-700 dark:text-gray-200">${(s.stock * s.cost).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-gray-300">{formatCOP(s.cost)}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-700 dark:text-gray-200">{formatCOP(s.stock * s.cost)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button className="btn btn-sm btn-secondary" onClick={() => setMovSupply(s)}>

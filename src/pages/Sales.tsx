@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import { formatCOP } from '../utils/currency'
 
 const STATUS_BADGE: Record<string, string> = {
   pending:'badge-yellow', confirmed:'badge-blue', processing:'badge-blue',
@@ -42,23 +43,24 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
   }
 
   const subtotal = items.reduce((a, x) => a + x.qty * x.price, 0)
-  const tax      = subtotal * 0.16
+  const tax      = subtotal * 0.19
   const total    = subtotal + tax
 
   const handleSave = () => {
     const customer = customers.find((c) => c.id === customerId)
     if (!customer || items.length === 0) return
     const order: SaleOrder = {
-      id: `so${Date.now()}`, orderNumber: `VTA-2024-${String(Date.now()).slice(-3)}`,
+      id: `so${Date.now()}`, orderNumber: `VTA-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
       customer: customer.name, customerId,
       items: items.map((x) => ({ product:x.product, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      tax: parseFloat(tax.toFixed(2)),
-      total: parseFloat(total.toFixed(2)),
+      subtotal: Math.round(subtotal),
+      tax: Math.round(tax),
+      total: Math.round(total),
       status: 'confirmed', paymentStatus: 'pending',
       paymentMethod: payMethod,
       date: new Date().toISOString().split('T')[0],
       deliveryDate: delDate || undefined,
+      notes: notes || undefined,
     }
     addSaleOrder(order)
     onClose()
@@ -83,7 +85,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
             <div>
               <label className="label">Método de pago</label>
               <select className="input" value={payMethod} onChange={(e) => setPayMethod(e.target.value)}>
-                {['Efectivo','Tarjeta','Transferencia','Cheque'].map((m) => <option key={m}>{m}</option>)}
+                {['Efectivo','Tarjeta','Transferencia','Cheque','Nequi','Daviplata'].map((m) => <option key={m}>{m}</option>)}
               </select>
             </div>
             <div>
@@ -123,13 +125,13 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
                     onChange={(e) => updateItem(i, 'qty', parseFloat(e.target.value) || 1)} />
                 </div>
                 <div className="col-span-3">
-                  {i === 0 && <label className="label">Precio ($)</label>}
-                  <input className="input" type="number" min="0" step="0.01" value={item.price}
+                  {i === 0 && <label className="label">Precio (COP)</label>}
+                  <input className="input" type="number" min="0" step="1" value={item.price}
                     onChange={(e) => updateItem(i, 'price', parseFloat(e.target.value) || 0)} />
                 </div>
                 <div className="col-span-1">
                   {i === 0 && <label className="label">Sub</label>}
-                  <p className="py-2 text-sm font-semibold text-slate-700 dark:text-gray-200">${(item.qty * item.price).toFixed(2)}</p>
+                  <p className="py-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{formatCOP(item.qty * item.price)}</p>
                 </div>
                 <div className="col-span-1">
                   <button onClick={() => removeItem(i)} className="w-8 h-9 flex items-center justify-center text-red-400 hover:text-red-600">
@@ -143,10 +145,10 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
           {/* Totals */}
           {items.length > 0 && (
             <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 space-y-2 animate-fadeIn">
-              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">Subtotal</span><span className="dark:text-white">${subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">IVA (16%)</span><span className="dark:text-white">${tax.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">Subtotal</span><span className="dark:text-white">{formatCOP(subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">IVA (19%)</span><span className="dark:text-white">{formatCOP(tax)}</span></div>
               <div className="flex justify-between font-bold text-slate-800 dark:text-white text-base pt-2 border-t border-slate-200 dark:border-gray-600">
-                <span>Total</span><span>${total.toFixed(2)}</span>
+                <span>Total</span><span>{formatCOP(total)}</span>
               </div>
             </div>
           )}
@@ -175,9 +177,9 @@ function OrderDetail({ order, onClose }: { order: SaleOrder; onClose: () => void
         <div className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div><p className="text-slate-400 dark:text-gray-500 text-xs">Estado orden</p>
-              <span className={`badge ${STATUS_BADGE[order.status]}`}>{STATUS_LABELS[order.status]}</span></div>
+              <span className={`badge ${STATUS_BADGE[order.status] ?? 'badge-yellow'}`}>{STATUS_LABELS[order.status] ?? order.status}</span></div>
             <div><p className="text-slate-400 dark:text-gray-500 text-xs">Estado pago</p>
-              <span className={`badge ${PAY_BADGE[order.paymentStatus]}`}>{PAY_LABELS[order.paymentStatus]}</span></div>
+              <span className={`badge ${PAY_BADGE[order.paymentStatus] ?? 'badge-yellow'}`}>{PAY_LABELS[order.paymentStatus] ?? order.paymentStatus}</span></div>
             <div><p className="text-slate-400 dark:text-gray-500 text-xs">Método pago</p><p className="font-medium dark:text-gray-200">{order.paymentMethod}</p></div>
             <div><p className="text-slate-400 dark:text-gray-500 text-xs">Fecha</p><p className="font-medium dark:text-gray-200">{order.date}</p></div>
           </div>
@@ -186,16 +188,16 @@ function OrderDetail({ order, onClose }: { order: SaleOrder; onClose: () => void
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-slate-50 dark:border-gray-700">
                 <span className="text-slate-700 dark:text-gray-300">{item.product}</span>
-                <span className="text-slate-500 dark:text-gray-400">{item.qty} × ${item.price}</span>
-                <span className="font-semibold text-slate-800 dark:text-white">${item.subtotal.toFixed(2)}</span>
+                <span className="text-slate-500 dark:text-gray-400">{item.qty} × {formatCOP(item.price)}</span>
+                <span className="font-semibold text-slate-800 dark:text-white">{formatCOP(item.subtotal)}</span>
               </div>
             ))}
           </div>
           <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-3 space-y-1.5 text-sm">
-            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>Subtotal</span><span>${order.subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>IVA</span><span>${order.tax.toFixed(2)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>Subtotal</span><span>{formatCOP(order.subtotal)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>IVA</span><span>{formatCOP(order.tax)}</span></div>
             <div className="flex justify-between font-bold text-slate-800 dark:text-white pt-1.5 border-t border-slate-200 dark:border-gray-600">
-              <span>Total</span><span>${order.total.toFixed(2)}</span>
+              <span>Total</span><span>{formatCOP(order.total)}</span>
             </div>
           </div>
           {order.paymentStatus !== 'paid' && (
@@ -246,9 +248,9 @@ export default function Sales() {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label:'Ingresos totales', value:`$${totalRevenue.toFixed(2)}`, icon:DollarSign, color:'bg-blue-600' },
-          { label:'Por cobrar',       value:`$${pendingPay.toFixed(2)}`,   icon:Clock,      color:'bg-amber-500' },
-          { label:'Total órdenes',    value:todayOrders,                   icon:ShoppingCart,color:'bg-teal-600'},
+          { label:'Ingresos totales', value: formatCOP(totalRevenue), icon:DollarSign, color:'bg-blue-600' },
+          { label:'Por cobrar',       value: formatCOP(pendingPay),   icon:Clock,      color:'bg-amber-500' },
+          { label:'Total órdenes',    value: String(todayOrders),     icon:ShoppingCart,color:'bg-teal-600'},
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
@@ -297,9 +299,9 @@ export default function Sales() {
                 <td className="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
                 <td className="px-4 py-3 font-medium text-slate-800 dark:text-gray-200">{o.customer}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.items.length} ítem(s)</td>
-                <td className="px-4 py-3 font-bold text-slate-800 dark:text-white">${o.total.toFixed(2)}</td>
-                <td className="px-4 py-3"><span className={`badge ${PAY_BADGE[o.paymentStatus]}`}>{PAY_LABELS[o.paymentStatus]}</span></td>
-                <td className="px-4 py-3"><span className={`badge ${STATUS_BADGE[o.status]}`}>{STATUS_LABELS[o.status]}</span></td>
+                <td className="px-4 py-3 font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</td>
+                <td className="px-4 py-3"><span className={`badge ${PAY_BADGE[o.paymentStatus] ?? 'badge-yellow'}`}>{PAY_LABELS[o.paymentStatus] ?? o.paymentStatus}</span></td>
+                <td className="px-4 py-3"><span className={`badge ${STATUS_BADGE[o.status] ?? 'badge-yellow'}`}>{STATUS_LABELS[o.status] ?? o.status}</span></td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.paymentMethod}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.date}</td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
