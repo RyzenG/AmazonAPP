@@ -20,10 +20,12 @@ router.put('/', async (req, res) => {
   const { companyName, slogan, email, phone, address, currency, timezone, logo } = req.body
   try {
     const { rows } = await pool.query(
-      `UPDATE settings SET
+      `INSERT INTO settings (id, company_name, slogan, email, phone, address, currency, timezone, logo)
+       VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET
          company_name=$1, slogan=$2, email=$3, phone=$4, address=$5,
          currency=$6, timezone=$7, logo=$8
-       WHERE id=1 RETURNING *`,
+       RETURNING *`,
       [companyName, slogan, email, phone, address, currency, timezone, logo ?? null]
     )
     res.json(rows[0])
