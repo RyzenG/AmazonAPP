@@ -315,22 +315,49 @@ export default function Settings() {
                 </table>
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-3">Roles y permisos</h3>
-                <div className="space-y-3">
-                  {ROLES.map((r) => (
-                    <div key={r.name} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <span className={`badge ${r.color}`}>{r.name}</span>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {r.perms.map((p) => (
-                            <span key={p} className="text-xs text-slate-500 dark:text-gray-400 bg-white dark:bg-gray-600 border border-slate-200 dark:border-gray-500 px-2 py-0.5 rounded">{p}</span>
+                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-3">Matriz de permisos por rol</h3>
+                <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-gray-700">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-200 dark:border-gray-700">
+                        <th className="text-left px-4 py-2.5 text-slate-500 dark:text-gray-400 font-semibold">Rol</th>
+                        {['Inventario','Catálogo','Clientes','Ventas','Producción'].map((m) => (
+                          <th key={m} className="text-center px-3 py-2.5 text-slate-500 dark:text-gray-400 font-semibold">{m}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { role:'Administrador', color:'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                          perms: ['✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar'] },
+                        { role:'Producción',    color:'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+                          perms: ['✏️ Editar','Solo lectura','Solo lectura','Solo lectura','✏️ Editar'] },
+                        { role:'Ventas',        color:'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                          perms: ['Solo lectura','Solo lectura','✏️ Editar','✏️ Editar','Solo lectura'] },
+                        { role:'Inventario',    color:'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+                          perms: ['✏️ Editar','✏️ Editar','Solo lectura','Solo lectura','Solo lectura'] },
+                        { role:'Contabilidad',  color:'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+                          perms: ['Solo lectura','Solo lectura','Solo lectura','Solo lectura','Solo lectura'] },
+                      ].map((row) => (
+                        <tr key={row.role} className="border-b border-slate-100 dark:border-gray-700">
+                          <td className="px-4 py-2.5">
+                            <span className={`badge ${row.color}`}>{row.role}</span>
+                          </td>
+                          {row.perms.map((p, i) => (
+                            <td key={i} className={`px-3 py-2.5 text-center ${
+                              p.includes('Eliminar') ? 'text-red-600 dark:text-red-400 font-medium' :
+                              p.includes('Editar')   ? 'text-blue-600 dark:text-blue-400' :
+                              'text-slate-400 dark:text-gray-500'
+                            }`}>{p}</td>
                           ))}
-                        </div>
-                      </div>
-                      <button className="btn btn-sm btn-secondary">Editar permisos</button>
-                    </div>
-                  ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+                <p className="text-xs text-slate-400 dark:text-gray-500 mt-2">
+                  Solo el rol <strong>Administrador</strong> puede eliminar registros en cualquier módulo.
+                </p>
               </div>
             </div>
           )}

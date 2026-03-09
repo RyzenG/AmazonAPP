@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react'
+import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
+import { usePermissions } from '../hooks/usePermissions'
+import ConfirmDelete from '../components/ConfirmDelete'
 
 function StockBar({ value, min }: { value: number; min: number }) {
   const pct = Math.min((value / (min * 2)) * 100, 100)
@@ -134,12 +136,15 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
 }
 
 export default function Inventory() {
-  const { supplies } = useStore()
+  const { supplies, deleteSupply } = useStore()
+  const { canEdit, canDelete } = usePermissions()
   const [search, setSearch]           = useState('')
   const [catFilter, setCatFilter]     = useState('Todos')
   const [movSupply, setMovSupply]     = useState<Supply | null>(null)
   const [editSupply, setEditSupply]   = useState<Supply | undefined>()
   const [showModal, setShowModal]     = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Supply | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const categories = ['Todos', ...Array.from(new Set(supplies.map((s) => s.category)))]
   const filtered   = supplies.filter((s) => {
@@ -242,9 +247,18 @@ export default function Inventory() {
                       <button className="btn btn-sm btn-secondary" onClick={() => setMovSupply(s)}>
                         Movimiento
                       </button>
-                      <button className="btn btn-sm btn-secondary" onClick={() => { setEditSupply(s); setShowModal(true) }}>
-                        Editar
-                      </button>
+                      {canEdit('supplies') && (
+                        <button className="btn btn-sm btn-secondary flex items-center gap-1"
+                          onClick={() => { setEditSupply(s); setShowModal(true) }}>
+                          <Pencil size={12} /> Editar
+                        </button>
+                      )}
+                      {canDelete('supplies') && (
+                        <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                          onClick={() => setDeleteTarget(s)}>
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -262,6 +276,19 @@ export default function Inventory() {
 
       {movSupply && <MovementModal supply={movSupply} onClose={() => setMovSupply(null)} />}
       {showModal && <SupplyModal supply={editSupply} onClose={() => setShowModal(false)} />}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={deleteTarget.name}
+          loading={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteSupply(deleteTarget.id)
+            setDeleting(false)
+            setDeleteTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

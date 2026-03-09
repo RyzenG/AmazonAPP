@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, Play, CheckCircle, XCircle, Clock, Factory, X, ChevronDown } from 'lucide-react'
+import { Plus, Play, CheckCircle, XCircle, Clock, Factory, X, ChevronDown, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ProductionOrder } from '../data/mockData'
+import { usePermissions } from '../hooks/usePermissions'
+import ConfirmDelete from '../components/ConfirmDelete'
 
 const STATUS_LABELS: Record<string, string> = {
   pending:'Pendiente', in_progress:'En producción', finished:'Finalizado', cancelled:'Cancelado'
@@ -11,7 +13,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 const PRIORITY_LABELS: Record<number, string> = { 1:'🔴 Urgente', 2:'🟠 Alta', 3:'🟡 Normal', 4:'🟢 Baja', 5:'⚪ Muy baja' }
 
-function OrderCard({ order }: { order: ProductionOrder }) {
+function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onDelete: () => void; canDelete: boolean }) {
   const { updateProductionOrderStatus } = useStore()
   const [expanded, setExpanded] = useState(false)
 
@@ -83,19 +85,23 @@ function OrderCard({ order }: { order: ProductionOrder }) {
           </div>
         )}
 
-        {actions.length > 0 && (
-          <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-gray-700">
-            {actions.map((a) => (
-              <button key={a.status} className={`btn btn-sm ${a.cls} flex-1`}
-                onClick={() => updateProductionOrderStatus(order.id, a.status)}>
-                {a.status === 'in_progress' && <Play size={12} />}
-                {a.status === 'finished'    && <CheckCircle size={12} />}
-                {a.status === 'cancelled'   && <XCircle size={12} />}
-                {a.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-gray-700">
+          {actions.map((a) => (
+            <button key={a.status} className={`btn btn-sm ${a.cls} flex-1`}
+              onClick={() => updateProductionOrderStatus(order.id, a.status)}>
+              {a.status === 'in_progress' && <Play size={12} />}
+              {a.status === 'finished'    && <CheckCircle size={12} />}
+              {a.status === 'cancelled'   && <XCircle size={12} />}
+              {a.label}
+            </button>
+          ))}
+          {canDelete && (
+            <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+              onClick={onDelete}>
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -180,10 +186,13 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Production() {
-  const { productionOrders, recipes } = useStore()
+  const { productionOrders, recipes, deleteProductionOrder } = useStore()
+  const { canDelete } = usePermissions()
   const [filter, setFilter]   = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'orders'|'recipes'>('orders')
+  const [deleteTarget, setDeleteTarget] = useState<ProductionOrder | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const filtered = filter === 'all' ? productionOrders
     : productionOrders.filter((o) => o.status === filter)
@@ -249,7 +258,12 @@ export default function Production() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((o) => <OrderCard key={o.id} order={o} />)}
+            {filtered.map((o) => (
+              <OrderCard key={o.id} order={o}
+                canDelete={canDelete('production')}
+                onDelete={() => setDeleteTarget(o)}
+              />
+            ))}
             {filtered.length === 0 && (
               <div className="col-span-3 text-center py-16 text-slate-400 dark:text-gray-600">
                 <Factory size={40} className="mx-auto mb-3 opacity-30" />
@@ -292,6 +306,19 @@ export default function Production() {
       )}
 
       {showModal && <NewOrderModal onClose={() => setShowModal(false)} />}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={deleteTarget.product ?? deleteTarget.productName ?? ''}
+          loading={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteProductionOrder(deleteTarget.id)
+            setDeleting(false)
+            setDeleteTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

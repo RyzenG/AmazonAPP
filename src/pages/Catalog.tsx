@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, Search, X, BookOpen, Tag, TrendingUp } from 'lucide-react'
+import { Plus, Search, X, BookOpen, Tag, TrendingUp, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Product } from '../data/mockData'
+import { usePermissions } from '../hooks/usePermissions'
+import ConfirmDelete from '../components/ConfirmDelete'
 
 const CAT_COLORS: Record<string, string> = {
   Tortas:'badge-blue', Panes:'badge-green', Galletas:'badge-yellow',
@@ -90,7 +92,10 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
   )
 }
 
-function ProductCard({ product, onEdit }: { product: Product; onEdit: () => void }) {
+function ProductCard({ product, onEdit, onDelete, canEdit, canDelete }: {
+  product: Product; onEdit: () => void; onDelete: () => void
+  canEdit: boolean; canDelete: boolean
+}) {
   const margin = product.price > 0
     ? ((product.price - product.cost) / product.price * 100).toFixed(0)
     : '0'
@@ -142,18 +147,31 @@ function ProductCard({ product, onEdit }: { product: Product; onEdit: () => void
           </span>
           {product.recipeId && <span className="badge badge-blue">Con receta</span>}
         </div>
-        <button className="btn btn-sm btn-secondary" onClick={onEdit}>Editar</button>
+        <div className="flex gap-2">
+          {canEdit && (
+            <button className="btn btn-sm btn-secondary" onClick={onEdit}>Editar</button>
+          )}
+          {canDelete && (
+            <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+              onClick={onDelete}>
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 export default function Catalog() {
-  const { products } = useStore()
+  const { products, deleteProduct } = useStore()
+  const { canEdit, canDelete } = usePermissions()
   const [search, setSearch]     = useState('')
   const [catFilter, setCat]     = useState('Todos')
   const [showModal, setShowModal] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | undefined>()
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const categories = ['Todos', ...Array.from(new Set(products.map((p) => p.category)))]
   const filtered = products.filter((p) => {
@@ -218,7 +236,11 @@ export default function Catalog() {
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map((p) => (
-          <ProductCard key={p.id} product={p} onEdit={() => { setEditProduct(p); setShowModal(true) }} />
+          <ProductCard key={p.id} product={p}
+            canEdit={canEdit('products')} canDelete={canDelete('products')}
+            onEdit={() => { setEditProduct(p); setShowModal(true) }}
+            onDelete={() => setDeleteTarget(p)}
+          />
         ))}
         {filtered.length === 0 && (
           <div className="col-span-4 text-center py-16 text-slate-400 dark:text-gray-600">
@@ -229,6 +251,19 @@ export default function Catalog() {
       </div>
 
       {showModal && <ProductModal product={editProduct} onClose={() => setShowModal(false)} />}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={deleteTarget.name}
+          loading={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteProduct(deleteTarget.id)
+            setDeleting(false)
+            setDeleteTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

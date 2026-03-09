@@ -50,4 +50,16 @@ router.put('/:id/status', async (req, res) => {
   }
 })
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM production_orders WHERE id=$1 RETURNING product_name AS "productName"', [req.params.id])
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'eliminar', entity: 'Orden de producción', entityId: req.params.id, entityName: rows[0].productName })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 export default router

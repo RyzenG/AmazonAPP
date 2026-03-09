@@ -64,12 +64,18 @@ interface AppState {
   updateProductionOrderStatus: (id: string, status: ProductionOrder['status']) => void
   addSupply:    (s: Supply)    => Promise<void>
   updateSupply: (s: Supply)    => Promise<void>
+  deleteSupply: (id: string)   => Promise<void>
   addProduct:   (p: Product)   => Promise<void>
   updateProduct:(p: Product)   => Promise<void>
+  deleteProduct:(id: string)   => Promise<void>
   addCustomer:  (c: Customer)  => Promise<void>
+  updateCustomer:(c: Customer) => Promise<void>
+  deleteCustomer:(id: string)  => Promise<void>
   addSaleOrder: (o: SaleOrder) => Promise<void>
   updateSaleOrder: (o: SaleOrder) => Promise<void>
+  deleteSaleOrder: (id: string) => Promise<void>
   addProductionOrder: (o: ProductionOrder) => Promise<void>
+  deleteProductionOrder:(id: string) => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -261,40 +267,61 @@ export const useStore = create<AppState>((set, get) => ({
     await apiFetch('/api/supplies', { method: 'POST', body: JSON.stringify(supply) })
     set((s) => ({ supplies: [...s.supplies, supply] }))
   },
-
   updateSupply: async (supply) => {
     await apiFetch(`/api/supplies/${supply.id}`, { method: 'PUT', body: JSON.stringify(supply) })
     set((s) => ({ supplies: s.supplies.map((x) => x.id === supply.id ? supply : x) }))
+  },
+  deleteSupply: async (id) => {
+    await apiFetch(`/api/supplies/${id}`, { method: 'DELETE' })
+    set((s) => ({ supplies: s.supplies.filter((x) => x.id !== id) }))
   },
 
   addProduct: async (product) => {
     await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(product) })
     set((s) => ({ products: [...s.products, product] }))
   },
-
   updateProduct: async (product) => {
     await apiFetch(`/api/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) })
     set((s) => ({ products: s.products.map((x) => x.id === product.id ? product : x) }))
+  },
+  deleteProduct: async (id) => {
+    await apiFetch(`/api/products/${id}`, { method: 'DELETE' })
+    set((s) => ({ products: s.products.filter((x) => x.id !== id) }))
   },
 
   addCustomer: async (customer) => {
     await apiFetch('/api/customers', { method: 'POST', body: JSON.stringify(customer) })
     set((s) => ({ customers: [...s.customers, customer] }))
   },
+  updateCustomer: async (customer) => {
+    await apiFetch(`/api/customers/${customer.id}`, { method: 'PUT', body: JSON.stringify(customer) })
+    set((s) => ({ customers: s.customers.map((x) => x.id === customer.id ? customer : x) }))
+  },
+  deleteCustomer: async (id) => {
+    await apiFetch(`/api/customers/${id}`, { method: 'DELETE' })
+    set((s) => ({ customers: s.customers.filter((x) => x.id !== id) }))
+  },
 
   addSaleOrder: async (order) => {
     await apiFetch('/api/sale-orders', { method: 'POST', body: JSON.stringify(order) })
     set((s) => ({ saleOrders: [...s.saleOrders, order] }))
   },
-
   updateSaleOrder: async (order) => {
     await apiFetch(`/api/sale-orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) })
     set((s) => ({ saleOrders: s.saleOrders.map((x) => x.id === order.id ? order : x) }))
+  },
+  deleteSaleOrder: async (id) => {
+    await apiFetch(`/api/sale-orders/${id}`, { method: 'DELETE' })
+    set((s) => ({ saleOrders: s.saleOrders.filter((x) => x.id !== id) }))
   },
 
   addProductionOrder: async (order) => {
     await apiFetch('/api/production-orders', { method: 'POST', body: JSON.stringify(order) })
     set((s) => ({ productionOrders: [...s.productionOrders, order] }))
+  },
+  deleteProductionOrder: async (id) => {
+    await apiFetch(`/api/production-orders/${id}`, { method: 'DELETE' })
+    set((s) => ({ productionOrders: s.productionOrders.filter((x) => x.id !== id) }))
   },
 
   // ── Factory reset ──────────────────────────────────────────────────────────

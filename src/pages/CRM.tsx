@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send } from 'lucide-react'
+import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send, Pencil, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer } from '../data/mockData'
+import { usePermissions } from '../hooks/usePermissions'
+import ConfirmDelete from '../components/ConfirmDelete'
 
 const SEG_BADGE: Record<string, string> = {
   vip:'badge-purple', mayorista:'badge-blue', regular:'badge-gray',
@@ -11,7 +13,7 @@ const SEG_LABELS: Record<string, string> = {
 }
 
 function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
-  const { addCustomer } = useStore()
+  const { addCustomer, updateCustomer } = useStore()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
     code:`CLI-${String(Date.now()).slice(-3)}`, name:'', company:'',
     email:'', phone:'', city:'', segment:'regular', isActive:true,
@@ -51,7 +53,8 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
           <button className="btn btn-secondary flex-1" onClick={onClose}>Cancelar</button>
           <button className="btn btn-primary flex-1" onClick={() => {
             if (!form.name) return
-            if (!customer) addCustomer({ ...(form as Customer), id:`c${Date.now()}` })
+            if (customer) { updateCustomer({ ...customer, ...form } as Customer) }
+            else { addCustomer({ ...(form as Customer), id:`c${Date.now()}` }) }
             onClose()
           }}>
             {customer ? 'Actualizar' : 'Crear cliente'}
@@ -62,7 +65,11 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
   )
 }
 
-function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () => void }) {
+function CustomerCard({ customer, onClick, onEdit, onDelete, canEdit, canDelete }: {
+  customer: Customer; onClick: () => void
+  onEdit: () => void; onDelete: () => void
+  canEdit: boolean; canDelete: boolean
+}) {
   return (
     <div className="card p-5 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent transition-all cursor-pointer"
       onClick={onClick}>
@@ -114,9 +121,19 @@ function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () =
           <p className="text-xs text-slate-400 dark:text-gray-500">Total compras</p>
           <p className="font-bold text-slate-800 dark:text-white">${customer.totalPurchases.toLocaleString()}</p>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-slate-400 dark:text-gray-500">Última compra</p>
-          <p className="text-xs font-medium text-slate-600 dark:text-gray-300">{customer.lastPurchase}</p>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <button className="btn btn-sm btn-secondary flex items-center gap-1"
+              onClick={(e) => { e.stopPropagation(); onEdit() }}>
+              <Pencil size={12} /> Editar
+            </button>
+          )}
+          {canDelete && (
+            <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+              onClick={(e) => { e.stopPropagation(); onDelete() }}>
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -124,11 +141,15 @@ function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () =
 }
 
 export default function CRM() {
-  const { customers, saleOrders } = useStore()
+  const { customers, saleOrders, deleteCustomer } = useStore()
+  const { canEdit, canDelete } = usePermissions()
   const [search, setSearch]       = useState('')
   const [segFilter, setSeg]       = useState('all')
   const [showModal, setShowModal] = useState(false)
+  const [editCustomer, setEditCustomer] = useState<Customer | undefined>()
   const [selected, setSelected]   = useState<Customer | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -148,7 +169,7 @@ export default function CRM() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Clientes — CRM</h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm">Base de clientes y seguimiento</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn btn-primary" onClick={() => { setEditCustomer(undefined); setShowModal(true) }}>
           <Plus size={16} /> Nuevo cliente
         </button>
       </div>
@@ -195,7 +216,12 @@ export default function CRM() {
       {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((c) => (
-          <CustomerCard key={c.id} customer={c} onClick={() => setSelected(c)} />
+          <CustomerCard key={c.id} customer={c}
+            canEdit={canEdit('customers')} canDelete={canDelete('customers')}
+            onClick={() => setSelected(c)}
+            onEdit={() => { setEditCustomer(c); setShowModal(true) }}
+            onDelete={() => setDeleteTarget(c)}
+          />
         ))}
         {filtered.length === 0 && (
           <div className="col-span-3 text-center py-16 text-slate-400 dark:text-gray-600">
@@ -211,7 +237,21 @@ export default function CRM() {
           <div className="bg-white dark:bg-gray-800 w-full max-w-md h-full overflow-y-auto animate-slideIn">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
               <h3 className="font-semibold dark:text-white">Detalle del cliente</h3>
-              <button onClick={() => setSelected(null)}><X size={18} className="text-slate-400" /></button>
+              <div className="flex items-center gap-2">
+                {canEdit('customers') && (
+                  <button className="btn btn-sm btn-secondary flex items-center gap-1"
+                    onClick={() => { setEditCustomer(selected); setShowModal(true) }}>
+                    <Pencil size={12} /> Editar
+                  </button>
+                )}
+                {canDelete('customers') && (
+                  <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                    onClick={() => { setDeleteTarget(selected); setSelected(null) }}>
+                    <Trash2 size={12} />
+                  </button>
+                )}
+                <button onClick={() => setSelected(null)}><X size={18} className="text-slate-400" /></button>
+              </div>
             </div>
             <div className="p-6 space-y-6">
               {/* Avatar & info */}
@@ -316,7 +356,20 @@ export default function CRM() {
         </div>
       )}
 
-      {showModal && <CustomerModal onClose={() => setShowModal(false)} />}
+      {showModal && <CustomerModal customer={editCustomer} onClose={() => { setShowModal(false); setEditCustomer(undefined) }} />}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={deleteTarget.name}
+          loading={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteCustomer(deleteTarget.id)
+            setDeleting(false)
+            setDeleteTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

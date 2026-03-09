@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
+import { usePermissions } from '../hooks/usePermissions'
+import ConfirmDelete from '../components/ConfirmDelete'
 
 const STATUS_BADGE: Record<string, string> = {
   pending:'badge-yellow', confirmed:'badge-blue', processing:'badge-blue',
@@ -209,11 +211,14 @@ function OrderDetail({ order, onClose }: { order: SaleOrder; onClose: () => void
 }
 
 export default function Sales() {
-  const { saleOrders } = useStore()
+  const { saleOrders, deleteSaleOrder } = useStore()
+  const { canDelete } = usePermissions()
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState('all')
   const [showModal, setShowModal]   = useState(false)
   const [detail, setDetail]         = useState<SaleOrder | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SaleOrder | null>(null)
+  const [deleting, setDeleting]         = useState(false)
 
   const filtered = saleOrders.filter((o) => {
     const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
@@ -298,7 +303,15 @@ export default function Sales() {
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.paymentMethod}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.date}</td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <button className="btn btn-sm btn-secondary" onClick={() => setDetail(o)}>Ver</button>
+                  <div className="flex items-center gap-2">
+                    <button className="btn btn-sm btn-secondary" onClick={() => setDetail(o)}>Ver</button>
+                    {canDelete('sales') && (
+                      <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                        onClick={() => setDeleteTarget(o)}>
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -314,6 +327,19 @@ export default function Sales() {
 
       {showModal && <NewSaleModal onClose={() => setShowModal(false)} />}
       {detail    && <OrderDetail order={detail} onClose={() => setDetail(null)} />}
+      {deleteTarget && (
+        <ConfirmDelete
+          name={`${deleteTarget.orderNumber} — ${deleteTarget.customer}`}
+          loading={deleting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            setDeleting(true)
+            await deleteSaleOrder(deleteTarget.id)
+            setDeleting(false)
+            setDeleteTarget(null)
+          }}
+        />
+      )}
     </div>
   )
 }

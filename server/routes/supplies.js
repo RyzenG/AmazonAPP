@@ -48,4 +48,16 @@ router.put('/:id', async (req, res) => {
   }
 })
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM supplies WHERE id=$1 RETURNING name', [req.params.id])
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'eliminar', entity: 'Insumo', entityId: req.params.id, entityName: rows[0].name })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 export default router
