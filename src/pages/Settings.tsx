@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
-import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 const TAB_ICONS: Record<string, any> = {
@@ -30,12 +31,28 @@ const ROLES = [
 ]
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('empresa')
-  const [saved, setSaved]         = useState(false)
-  const [saving, setSaving]       = useState(false)
+  const [activeTab, setActiveTab]       = useState('empresa')
+  const [saved, setSaved]               = useState(false)
+  const [saving, setSaving]             = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetting, setResetting]       = useState(false)
+  const [resetConfirmText, setResetConfirmText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
 
-  const { companySettings, saveCompanySettings } = useStore()
+  const { companySettings, saveCompanySettings, factoryReset } = useStore()
+
+  const handleFactoryReset = async () => {
+    if (resetConfirmText !== 'RESTABLECER') return
+    setResetting(true)
+    try {
+      await factoryReset()
+      navigate('/login', { replace: true })
+    } catch {
+      alert('Error al restablecer. Verifica que el servidor esté corriendo.')
+      setResetting(false)
+    }
+  }
 
   const [company, setCompany] = useState({
     name:     companySettings.companyName,
@@ -389,6 +406,73 @@ export default function Settings() {
                       <span className="text-sm text-slate-600 dark:text-gray-300">{r}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* ── Factory reset ── */}
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle size={20} className="text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-800 dark:text-red-300">Restablecer de fábrica</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        Elimina <strong>todos</strong> los datos: insumos, productos, órdenes, clientes, ventas y configuración. Esta acción es <strong>irreversible</strong>.
+                      </p>
+                      <button
+                        className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                        onClick={() => { setShowResetModal(true); setResetConfirmText('') }}
+                      >
+                        <RotateCcw size={14} /> Restablecer aplicación
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Reset confirmation modal ── */}
+          {showResetModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
+                    <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white">¿Restablecer de fábrica?</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-gray-300 mb-4">
+                  Se borrarán <strong>todos</strong> los registros de la base de datos y la sesión actual. No hay forma de deshacer esto.
+                </p>
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-1">
+                  Escribe <span className="text-red-600 font-mono">RESTABLECER</span> para confirmar:
+                </p>
+                <input
+                  className="input mb-4"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="RESTABLECER"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-3">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowResetModal(false)}
+                    disabled={resetting}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white transition-colors"
+                    onClick={handleFactoryReset}
+                    disabled={resetConfirmText !== 'RESTABLECER' || resetting}
+                  >
+                    {resetting ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <RotateCcw size={14} />
+                    )}
+                    {resetting ? 'Restableciendo...' : 'Sí, restablecer'}
+                  </button>
                 </div>
               </div>
             </div>

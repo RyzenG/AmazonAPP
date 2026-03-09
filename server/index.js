@@ -9,6 +9,7 @@ import customersRouter      from './routes/customers.js'
 import saleOrdersRouter     from './routes/saleOrders.js'
 import recipesRouter        from './routes/recipes.js'
 import settingsRouter       from './routes/settings.js'
+import resetRouter          from './routes/reset.js'
 
 dotenv.config()
 
@@ -25,6 +26,7 @@ app.use('/api/customers',         customersRouter)
 app.use('/api/sale-orders',       saleOrdersRouter)
 app.use('/api/recipes',           recipesRouter)
 app.use('/api/settings',          settingsRouter)
+app.use('/api/reset',             resetRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

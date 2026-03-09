@@ -72,6 +72,8 @@ interface AppState {
   addProductionOrder: (o: ProductionOrder) => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
+  // Actions – factory reset
+  factoryReset: () => Promise<void>
 }
 
 // ── localStorage helpers (solo para auth, theme, notifications, logo) ────────
@@ -286,6 +288,25 @@ export const useStore = create<AppState>((set, get) => ({
   addProductionOrder: async (order) => {
     await apiFetch('/api/production-orders', { method: 'POST', body: JSON.stringify(order) })
     set((s) => ({ productionOrders: [...s.productionOrders, order] }))
+  },
+
+  // ── Factory reset ──────────────────────────────────────────────────────────
+  factoryReset: async () => {
+    await apiFetch('/api/reset', { method: 'DELETE' })
+    // Clear all localStorage keys used by the app
+    ;['erp_auth', 'erp_notifications', 'erp_theme', 'erp_logo'].forEach((k) =>
+      localStorage.removeItem(k)
+    )
+    // Reset store to blank state (keep page alive, logout will redirect)
+    set({
+      supplies: [], products: [], productionOrders: [],
+      customers: [], saleOrders: [], recipes: [],
+      companySettings: defaultCompanySettings,
+      notifications: [],
+      dataLoaded: false,
+      isAuthenticated: false,
+      user: null,
+    })
   },
 
   // ── Company settings ───────────────────────────────────────────────────────
