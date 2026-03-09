@@ -2,8 +2,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
-import { FileText, FileSpreadsheet, TrendingUp, BarChart3, PieChart as PieIcon } from 'lucide-react'
-import { salesChartData, topProductsData, revenueByCategory, productionByMonth } from '../data/mockData'
+import { FileText, FileSpreadsheet, TrendingUp, BarChart3, PieChart as PieIcon, ShoppingCart, Package, Factory } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -11,18 +10,26 @@ import * as XLSX from 'xlsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const PIE_COLORS = ['#2563eb','#0f766e','#f59e0b','#dc2626','#7c3aed']
+const PIE_COLORS = ['#2563eb','#0f766e','#f59e0b','#dc2626','#7c3aed','#0891b2','#65a30d']
+
+const EMPTY_STATE = (icon: React.ReactNode, msg: string) => (
+  <div className="flex flex-col items-center justify-center h-48 text-slate-400 dark:text-gray-600 text-sm gap-2">
+    {icon}
+    <span>{msg}</span>
+  </div>
+)
 
 export default function Reports() {
-  const { saleOrders, supplies, productionOrders, darkMode } = useStore()
+  const { saleOrders, supplies, productionOrders, products, darkMode } = useStore()
 
   const totalRevenue = saleOrders.reduce((a,o) => a + o.total, 0)
-  const totalCost    = productionOrders.reduce((a,o) => a + (o.actualCost ?? o.estimatedCost), 0)
+  const totalCost    = productionOrders.reduce((a,o) => a + (o.actualCost ?? o.estimatedCost ?? 0), 0)
   const grossMargin  = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue * 100) : 0
 
   const lowStockItems  = supplies.filter((s) => s.stock < s.minStock)
   const inventoryValue = supplies.reduce((a,s) => a + s.stock * s.cost, 0)
 
+  // Top customers from real orders
   const customerSales = saleOrders.reduce((acc, o) => {
     acc[o.customer] = (acc[o.customer] ?? 0) + o.total
     return acc
@@ -31,13 +38,68 @@ export default function Reports() {
     .sort(([,a],[,b]) => b - a).slice(0, 5)
     .map(([name, total]) => ({ name: name.split(' ')[0], total: parseFloat(total.toFixed(2)) }))
 
-  const productSales = saleOrders.flatMap((o) => o.items).reduce((acc, item) => {
-    acc[item.product] = (acc[item.product] ?? 0) + item.qty
+  // Top products from real order items
+  const productSales = saleOrders.flatMap((o) => o.items ?? []).reduce((acc, item: any) => {
+    const name = item.product ?? item.productName ?? ''
+    acc[name] = (acc[name] ?? 0) + (item.qty ?? item.quantity ?? 0)
     return acc
   }, {} as Record<string, number>)
   const productSalesData = Object.entries(productSales)
     .sort(([,a],[,b]) => b - a).slice(0,6)
     .map(([name, qty]) => ({ name: name.split(' ')[0], qty }))
+
+  // Sales trend: last 30 days grouped by date
+  const salesChartData = (() => {
+    const salesByDay: Record<string, number> = {}
+    saleOrders.forEach((o) => {
+      const d = o.date?.slice(0,10) ?? ''
+      if (d) salesByDay[d] = (salesByDay[d] ?? 0) + o.total
+    })
+    const now = new Date()
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(now)
+      d.setDate(d.getDate() - (29 - i))
+      const key = d.toISOString().slice(0,10)
+      return {
+        day: `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`,
+        ventas: salesByDay[key] ?? 0,
+      }
+    })
+  })()
+
+  // Revenue by category from real products
+  const revenueByCategory = (() => {
+    const productMap = Object.fromEntries(products.map((p) => [p.id, p]))
+    const rev: Record<string, number> = {}
+    saleOrders.forEach((o) =>
+      (o.items ?? []).forEach((item: any) => {
+        const cat = productMap[item.productId]?.category ?? 'Otros'
+        rev[cat] = (rev[cat] ?? 0) + (item.subtotal ?? 0)
+      })
+    )
+    const total = Object.values(rev).reduce((a, v) => a + v, 0)
+    if (total === 0) return []
+    return Object.entries(rev)
+      .sort((a,b) => b[1] - a[1])
+      .map(([name, v]) => ({ name, value: Math.round(v / total * 100) }))
+  })()
+
+  // Production by month from real production orders
+  const productionByMonth = (() => {
+    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    const byMonth: Record<string, number> = {}
+    productionOrders.forEach((o) => {
+      const date = o.startDate ?? o.plannedStart ?? ''
+      if (!date) return
+      const d = new Date(date)
+      if (isNaN(d.getTime())) return
+      const key = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+      byMonth[key] = (byMonth[key] ?? 0) + (o.quantity ?? o.plannedQty ?? 0)
+    })
+    return Object.entries(byMonth)
+      .slice(-6)
+      .map(([month, unidades]) => ({ month: month.slice(0,3), unidades }))
+  })()
 
   const gridColor = darkMode ? '#374151' : '#f1f5f9'
   const tickColor = darkMode ? '#9ca3af' : '#94a3b8'
@@ -163,101 +225,118 @@ export default function Reports() {
 
       {/* Sales trend */}
       <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-semibold text-slate-800 dark:text-white">Tendencia de ventas — 30 días</h2>
-            <p className="text-xs text-slate-500 dark:text-gray-400">Ventas diarias vs meta</p>
-          </div>
+        <div className="mb-4">
+          <h2 className="font-semibold text-slate-800 dark:text-white">Tendencia de ventas — 30 días</h2>
+          <p className="text-xs text-slate-500 dark:text-gray-400">Ventas diarias registradas</p>
         </div>
-        <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={salesChartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-            <XAxis dataKey="day" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} interval={4} />
-            <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} tickFormatter={(v)=>`$${v}`} />
-            <Tooltip formatter={(v:number)=>[`$${v}`]} />
-            <Legend wrapperStyle={{ fontSize:'12px' }} />
-            <Line type="monotone" dataKey="meta"   stroke={darkMode ? '#4b5563' : '#e2e8f0'} strokeWidth={2} dot={false} name="Meta" />
-            <Line type="monotone" dataKey="ventas" stroke="#2563eb" strokeWidth={2.5} dot={false} name="Ventas" activeDot={{ r:5 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {saleOrders.length === 0
+          ? EMPTY_STATE(<ShoppingCart size={32} className="opacity-30" />, 'Sin ventas registradas')
+          : (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={salesChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="day" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} interval={4} />
+                <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} tickFormatter={(v)=>`$${v}`} />
+                <Tooltip formatter={(v:number)=>[`$${v.toFixed(2)}`, 'Ventas']} />
+                <Line type="monotone" dataKey="ventas" stroke="#2563eb" strokeWidth={2.5} dot={false} name="Ventas" activeDot={{ r:5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )
+        }
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top customers */}
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-800 dark:text-white">Clientes más activos</h2>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={topCustomers} layout="vertical" barSize={12}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-              <XAxis type="number" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false}
-                     tickFormatter={(v)=>`$${v}`} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize:11, fill:tickColor }}
-                     tickLine={false} axisLine={false} width={70} />
-              <Tooltip formatter={(v:number)=>[`$${v.toFixed(2)}`, 'Total compras']} />
-              <Bar dataKey="total" fill="#7c3aed" radius={[0,4,4,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h2 className="font-semibold text-slate-800 dark:text-white mb-4">Clientes más activos</h2>
+          {topCustomers.length === 0
+            ? EMPTY_STATE(<ShoppingCart size={32} className="opacity-30" />, 'Sin ventas registradas')
+            : (
+              <ResponsiveContainer width="100%" height={Math.max(topCustomers.length * 44, 120)}>
+                <BarChart data={topCustomers} layout="vertical" barSize={12}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false}
+                         tickFormatter={(v)=>`$${v}`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize:11, fill:tickColor }}
+                         tickLine={false} axisLine={false} width={80} />
+                  <Tooltip formatter={(v:number)=>[`$${v.toFixed(2)}`, 'Total compras']} />
+                  <Bar dataKey="total" fill="#7c3aed" radius={[0,4,4,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
         </div>
 
         {/* Products sold */}
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-slate-800 dark:text-white">Productos más vendidos</h2>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={productSalesData} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-              <XAxis dataKey="name" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
-              <Tooltip formatter={(v:number)=>[`${v} u`, 'Unidades']} />
-              <Bar dataKey="qty" fill="#0f766e" radius={[4,4,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h2 className="font-semibold text-slate-800 dark:text-white mb-4">Productos más vendidos</h2>
+          {productSalesData.length === 0
+            ? EMPTY_STATE(<Package size={32} className="opacity-30" />, 'Sin ventas registradas')
+            : (
+              <ResponsiveContainer width="100%" height={Math.max(productSalesData.length * 44, 120)}>
+                <BarChart data={productSalesData} barSize={28}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis dataKey="name" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(v:number)=>[`${v} u`, 'Unidades']} />
+                  <Bar dataKey="qty" fill="#0f766e" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
         </div>
 
         {/* Revenue by category */}
         <div className="card p-5">
           <h2 className="font-semibold text-slate-800 dark:text-white mb-1">Ingresos por categoría</h2>
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">Participación en ventas</p>
-          <div className="flex items-center gap-6">
-            <ResponsiveContainer width="50%" height={180}>
-              <PieChart>
-                <Pie data={revenueByCategory} cx="50%" cy="50%" outerRadius={80}
-                     dataKey="value" paddingAngle={3}>
-                  {revenueByCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
-                </Pie>
-                <Tooltip formatter={(v)=>[`${v}%`,'Participación']} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex-1 space-y-2">
-              {revenueByCategory.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i] }} />
-                    <span className="text-slate-600 dark:text-gray-300">{d.name}</span>
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-gray-200">{d.value}%</span>
+          {revenueByCategory.length === 0
+            ? EMPTY_STATE(<ShoppingCart size={32} className="opacity-30" />, 'Sin ventas registradas')
+            : (
+              <div className="flex items-center gap-6">
+                <ResponsiveContainer width="50%" height={180}>
+                  <PieChart>
+                    <Pie data={revenueByCategory} cx="50%" cy="50%" outerRadius={80}
+                         dataKey="value" paddingAngle={3}>
+                      {revenueByCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip formatter={(v)=>[`${v}%`,'Participación']} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-2">
+                  {revenueByCategory.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="text-slate-600 dark:text-gray-300">{d.name}</span>
+                      </div>
+                      <span className="font-bold text-slate-700 dark:text-gray-200">{d.value}%</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )
+          }
         </div>
 
         {/* Production trend */}
         <div className="card p-5">
           <h2 className="font-semibold text-slate-800 dark:text-white mb-1">Producción mensual</h2>
           <p className="text-xs text-slate-500 dark:text-gray-400 mb-4">Unidades producidas por mes</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={productionByMonth} barSize={32}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-              <XAxis dataKey="month" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
-              <Tooltip formatter={(v:number)=>[`${v} u`, 'Producción']} />
-              <Bar dataKey="unidades" fill="#f59e0b" radius={[4,4,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {productionByMonth.length === 0
+            ? EMPTY_STATE(<Factory size={32} className="opacity-30" />, 'Sin órdenes de producción')
+            : (
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={productionByMonth} barSize={32}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                  <XAxis dataKey="month" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(v:number)=>[`${v} u`, 'Producción']} />
+                  <Bar dataKey="unidades" fill="#f59e0b" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )
+          }
         </div>
       </div>
 
