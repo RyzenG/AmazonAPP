@@ -47,7 +47,8 @@ async function migrate() {
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_port     INTEGER DEFAULT 587;
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_user     TEXT DEFAULT '';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_pass     TEXT DEFAULT '';
-      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_from     TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_from          TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS resend_api_key     TEXT DEFAULT '';
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,

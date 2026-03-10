@@ -1,6 +1,5 @@
-import { Router }    from 'express'
-import nodemailer    from 'nodemailer'
-import { pool }      from '../db.js'
+import { Router } from 'express'
+import { pool }   from '../db.js'
 import { log, getUser } from '../audit.js'
 
 const router = Router()
@@ -134,7 +133,7 @@ router.post('/invoice', async (req, res) => {
     return res.status(400).json({ error: 'Se requiere el correo del destinatario' })
   }
 
-  // Load SMTP + company settings from DB
+  // Load Resend API key + company settings from DB
   let settings
   try {
     const { rows } = await pool.query(
@@ -146,9 +145,8 @@ router.post('/invoice', async (req, res) => {
               tiktok, whatsapp, instagram,
               instagram_handle AS "instagramHandle",
               logo,
-              smtp_host AS "smtpHost", smtp_port AS "smtpPort",
-              smtp_user AS "smtpUser", smtp_pass AS "smtpPass",
-              smtp_from AS "smtpFrom"
+              smtp_from AS "smtpFrom",
+              resend_api_key AS "resendApiKey"
        FROM settings WHERE id = 1`
     )
     settings = rows[0]
@@ -156,33 +154,36 @@ router.post('/invoice', async (req, res) => {
     return res.status(500).json({ error: 'Error leyendo configuración: ' + e.message })
   }
 
-  if (!settings?.smtpHost || !settings?.smtpUser || !settings?.smtpPass) {
+  if (!settings?.resendApiKey) {
     return res.status(400).json({
-      error: 'Configura el servidor SMTP en Configuración → Empresa antes de enviar correos.',
+      error: 'Configura tu API Key de Resend en Configuración → Empresa → Correo Electrónico.',
     })
   }
 
-  // Build HTML
   const html = buildInvoiceHtml({ order, customer, settings })
 
-  // Send email
+  const fromAddress = settings.smtpFrom || 'Amazonia Concrete <onboarding@resend.dev>'
+
   try {
-    const transporter = nodemailer.createTransport({
-      host:   settings.smtpHost,
-      port:   Number(settings.smtpPort) || 587,
-      secure: Number(settings.smtpPort) === 465,
-      auth: {
-        user: settings.smtpUser,
-        pass: settings.smtpPass,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${settings.resendApiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [recipientEmail],
+        subject: `Factura ${order.orderNumber} — ${settings.companyName}`,
+        html,
+      }),
     })
 
-    await transporter.sendMail({
-      from:    settings.smtpFrom || settings.smtpUser,
-      to:      recipientEmail,
-      subject: `Factura ${order.orderNumber} — ${settings.companyName}`,
-      html,
-    })
+    const data = await response.json()
+
+    if (!response.ok) {
+      return res.status(500).json({ error: `Error Resend: ${data.message || JSON.stringify(data)}` })
+    }
 
     const u = getUser(req)
     await log({
@@ -200,23 +201,29 @@ router.post('/invoice', async (req, res) => {
 
 // ── POST /api/email/test ──────────────────────────────────────────────────────
 router.post('/test', async (req, res) => {
-  const { smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, testEmail } = req.body
-  if (!smtpHost || !smtpUser || !smtpPass || !testEmail) {
-    return res.status(400).json({ error: 'Faltan parámetros SMTP' })
+  const { resendApiKey, smtpFrom, testEmail } = req.body
+  if (!resendApiKey || !testEmail) {
+    return res.status(400).json({ error: 'Se requiere el API Key de Resend y el correo de prueba' })
   }
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: Number(smtpPort) || 587,
-      secure: Number(smtpPort) === 465,
-      auth: { user: smtpUser, pass: smtpPass },
+    const fromAddress = smtpFrom || 'Amazonia Concrete <onboarding@resend.dev>'
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [testEmail],
+        subject: 'Prueba de configuración — Amazonia ERP',
+        text: '¡La configuración de correo está funcionando correctamente! Ya puedes enviar facturas por correo.',
+      }),
     })
-    await transporter.sendMail({
-      from:    smtpFrom || smtpUser,
-      to:      testEmail,
-      subject: 'Prueba de configuración SMTP — Amazonia ERP',
-      text:    '¡El servidor SMTP está configurado correctamente! Ya puedes enviar facturas por correo.',
-    })
+    const data = await response.json()
+    if (!response.ok) {
+      return res.status(500).json({ error: `Error Resend: ${data.message || JSON.stringify(data)}` })
+    }
     res.json({ ok: true })
   } catch (e) {
     res.status(500).json({ error: e.message })

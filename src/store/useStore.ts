@@ -42,6 +42,7 @@ export interface CompanySettings {
   smtpUser: string
   smtpPass: string
   smtpFrom: string
+  resendApiKey: string
 }
 
 interface AppState {
@@ -181,6 +182,7 @@ const defaultCompanySettings: CompanySettings = {
   smtpUser: '',
   smtpPass: '',
   smtpFrom: '',
+  resendApiKey: '',
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -236,6 +238,7 @@ export const useStore = create<AppState>((set, get) => ({
         smtpUser:           settings.smtpUser           ?? defaultCompanySettings.smtpUser,
         smtpPass:           settings.smtpPass           ?? defaultCompanySettings.smtpPass,
         smtpFrom:           settings.smtpFrom           ?? defaultCompanySettings.smtpFrom,
+        resendApiKey:       settings.resendApiKey       ?? defaultCompanySettings.resendApiKey,
       }
 
       set({ supplies, products, productionOrders, customers, saleOrders, recipes, companySettings, dataLoaded: true })
