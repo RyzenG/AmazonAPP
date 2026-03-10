@@ -195,26 +195,44 @@ export default function Settings() {
   }
 
   const [company, setCompany] = useState({
-    name:     companySettings.companyName,
-    slogan:   companySettings.slogan,
-    email:    companySettings.email,
-    phone:    companySettings.phone,
-    address:  companySettings.address,
-    currency: companySettings.currency,
-    timezone: companySettings.timezone,
+    name:              companySettings.companyName,
+    slogan:            companySettings.slogan,
+    email:             companySettings.email,
+    phone:             companySettings.phone,
+    address:           companySettings.address,
+    currency:          companySettings.currency,
+    timezone:          companySettings.timezone,
+    bankName:          companySettings.bankName,
+    bankKey:           companySettings.bankKey,
+    bankAccountType:   companySettings.bankAccountType,
+    bankAccountNumber: companySettings.bankAccountNumber,
+    bankMessage:       companySettings.bankMessage,
+    tiktok:            companySettings.tiktok,
+    whatsapp:          companySettings.whatsapp,
+    instagram:         companySettings.instagram,
+    instagramHandle:   companySettings.instagramHandle,
   })
   const [logoPreview, setLogoPreview] = useState<string | null>(companySettings.logo)
 
   // Sync local state when store loads from API
   useEffect(() => {
     setCompany({
-      name:     companySettings.companyName,
-      slogan:   companySettings.slogan,
-      email:    companySettings.email,
-      phone:    companySettings.phone,
-      address:  companySettings.address,
-      currency: companySettings.currency,
-      timezone: companySettings.timezone,
+      name:              companySettings.companyName,
+      slogan:            companySettings.slogan,
+      email:             companySettings.email,
+      phone:             companySettings.phone,
+      address:           companySettings.address,
+      currency:          companySettings.currency,
+      timezone:          companySettings.timezone,
+      bankName:          companySettings.bankName,
+      bankKey:           companySettings.bankKey,
+      bankAccountType:   companySettings.bankAccountType,
+      bankAccountNumber: companySettings.bankAccountNumber,
+      bankMessage:       companySettings.bankMessage,
+      tiktok:            companySettings.tiktok,
+      whatsapp:          companySettings.whatsapp,
+      instagram:         companySettings.instagram,
+      instagramHandle:   companySettings.instagramHandle,
     })
     setLogoPreview(companySettings.logo)
   }, [companySettings])
@@ -235,14 +253,23 @@ export default function Settings() {
     setSaving(true)
     try {
       await saveCompanySettings({
-        companyName: company.name,
-        slogan:      company.slogan,
-        email:       company.email,
-        phone:       company.phone,
-        address:     company.address,
-        currency:    company.currency,
-        timezone:    company.timezone,
-        logo:        logoPreview,
+        companyName:        company.name,
+        slogan:             company.slogan,
+        email:              company.email,
+        phone:              company.phone,
+        address:            company.address,
+        currency:           company.currency,
+        timezone:           company.timezone,
+        logo:               logoPreview,
+        bankName:           company.bankName,
+        bankKey:            company.bankKey,
+        bankAccountType:    company.bankAccountType,
+        bankAccountNumber:  company.bankAccountNumber,
+        bankMessage:        company.bankMessage,
+        tiktok:             company.tiktok,
+        whatsapp:           company.whatsapp,
+        instagram:          company.instagram,
+        instagramHandle:    company.instagramHandle,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -370,6 +397,53 @@ export default function Settings() {
                       <option key={tz}>{tz}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* ── Bank / Factura info ── */}
+              <div className="border-t border-slate-100 dark:border-gray-700 pt-5">
+                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-4 flex items-center gap-2">
+                  <CreditCard size={15} /> Datos de pago (Factura)
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    ['Banco (ej: Bancolombia)', 'bankName'],
+                    ['Llave / Nequi / Teléfono', 'bankKey'],
+                    ['Tipo de cuenta (ej: Cuenta Ahorros)', 'bankAccountType'],
+                    ['Número de cuenta', 'bankAccountNumber'],
+                  ].map(([label, key]) => (
+                    <div key={key}>
+                      <label className="label">{label}</label>
+                      <input className="input" value={company[key as keyof typeof company] as string}
+                        onChange={(e) => setCompany({ ...company, [key]: e.target.value })} />
+                    </div>
+                  ))}
+                  <div className="col-span-2">
+                    <label className="label">Mensaje de agradecimiento (ej: Gracias por tu compra!!!)</label>
+                    <input className="input" value={company.bankMessage}
+                      onChange={(e) => setCompany({ ...company, bankMessage: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Redes sociales ── */}
+              <div className="border-t border-slate-100 dark:border-gray-700 pt-5">
+                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-4">
+                  🌐 Redes sociales (Factura)
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    ['TikTok URL', 'tiktok'],
+                    ['WhatsApp (número)', 'whatsapp'],
+                    ['Instagram URL', 'instagram'],
+                    ['Instagram Handle (ej: @Amazoniaconcrete)', 'instagramHandle'],
+                  ].map(([label, key]) => (
+                    <div key={key}>
+                      <label className="label">{label}</label>
+                      <input className="input" value={company[key as keyof typeof company] as string}
+                        onChange={(e) => setCompany({ ...company, [key]: e.target.value })} />
+                    </div>
+                  ))}
                 </div>
               </div>
 

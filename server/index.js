@@ -33,6 +33,15 @@ async function migrate() {
       ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
       ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS cost NUMERIC NOT NULL DEFAULT 0;
       ALTER TABLE supplies ADD COLUMN IF NOT EXISTS sku TEXT;
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS bank_name          TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS bank_key           TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS bank_account_type  TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS bank_account_number TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS bank_message       TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS tiktok             TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp           TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram          TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_handle   TEXT DEFAULT '';
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2 } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -162,7 +162,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function OrderDetail({ order, onClose }: { order: SaleOrder; onClose: () => void }) {
+function OrderDetail({ order, onClose, onInvoice }: { order: SaleOrder; onClose: () => void; onInvoice: () => void }) {
   const { updateSaleOrder } = useStore()
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -200,15 +200,234 @@ function OrderDetail({ order, onClose }: { order: SaleOrder; onClose: () => void
               <span>Total</span><span>{formatCOP(order.total)}</span>
             </div>
           </div>
-          {order.paymentStatus !== 'paid' && (
-            <button className="btn btn-success w-full"
-              onClick={() => { updateSaleOrder({ ...order, paymentStatus:'paid' }); onClose() }}>
-              <CheckCircle size={16} /> Marcar como pagado
+          <div className="flex gap-3">
+            <button className="btn btn-secondary flex-1 flex items-center justify-center gap-2" onClick={onInvoice}>
+              <FileText size={15} /> Ver Factura
             </button>
-          )}
+            {order.paymentStatus !== 'paid' && (
+              <button className="btn btn-success flex-1"
+                onClick={() => { updateSaleOrder({ ...order, paymentStatus:'paid' }); onClose() }}>
+                <CheckCircle size={16} /> Marcar como pagado
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Invoice / Factura Modal ───────────────────────────────────────────────────
+function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => void }) {
+  const { customers, companySettings } = useStore()
+  const customer = customers.find((c) => c.id === order.customerId)
+
+  // Extract numeric invoice number from order number (e.g. "VTA-2024-007" → "007")
+  const invoiceNum = (order.orderNumber ?? '').split('-').pop() ?? order.orderNumber ?? '001'
+
+  const fmt = (n: number) =>
+    '$ ' + n.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+  const handlePrint = () => window.print()
+
+  // Concrete-grey gradient for header/footer
+  const concreteBg = 'linear-gradient(120deg,#888 0%,#b0aea8 20%,#ccc9c4 45%,#b5b2ad 70%,#909090 100%)'
+  const darkConcreteBg = 'linear-gradient(120deg,#2c2c2c 0%,#454545 30%,#3a3a3a 60%,#252525 100%)'
+
+  return (
+    <>
+      {/* Print-only style injected into head */}
+      <style>{`
+        @media print {
+          body > *:not(#invoice-print-root) { display: none !important; }
+          #invoice-print-root { position: fixed; inset: 0; z-index: 9999; background: white; }
+          .invoice-no-print { display: none !important; }
+          @page { margin: 0; size: A4; }
+        }
+      `}</style>
+
+      <div id="invoice-print-root" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+
+          {/* Toolbar — hidden when printing */}
+          <div className="invoice-no-print flex items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-200 flex-shrink-0">
+            <h3 className="font-semibold text-slate-800 text-sm">Vista previa — Factura {order.orderNumber}</h3>
+            <div className="flex items-center gap-3">
+              <button onClick={handlePrint}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Printer size={15} /> Imprimir / PDF
+              </button>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Invoice body — scrollable in modal, fills page when printing */}
+          <div className="overflow-y-auto flex-1">
+            <div style={{ background: 'white', fontFamily: 'Arial, Helvetica, sans-serif', color: '#111' }}>
+
+              {/* ── HEADER (concrete texture) ─────────────────── */}
+              <div style={{ background: concreteBg, padding: '36px 44px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '52px', fontWeight: '900', color: '#1e3a0f', letterSpacing: '-1px', lineHeight: 1, textTransform: 'uppercase' }}>
+                    FACTURA
+                  </div>
+                  <div style={{ marginTop: '10px', background: 'white', border: '1.5px solid #999', padding: '5px 18px', display: 'inline-block' }}>
+                    <span style={{ fontSize: '15px', fontWeight: '700', color: '#222' }}>Nº: {invoiceNum}</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                  {companySettings.logo ? (
+                    <img src={companySettings.logo} alt="Logo"
+                      style={{ height: '110px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+                  ) : (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '32px', fontWeight: '900', color: '#1e3a0f', letterSpacing: '2px' }}>AMAZONIA</div>
+                      <div style={{ fontSize: '11px', letterSpacing: '5px', color: '#444', borderTop: '1px solid #666', paddingTop: '3px', marginTop: '2px' }}>CONCRETE</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── CLIENT + COMPANY INFO ─────────────────────── */}
+              <div style={{ padding: '28px 44px', display: 'flex', borderBottom: '1px solid #e0e0e0' }}>
+                {/* Left: client */}
+                <div style={{ flex: 1, borderRight: '1.5px solid #ccc', paddingRight: '36px' }}>
+                  <p style={{ fontWeight: '800', fontSize: '12px', marginBottom: '14px', letterSpacing: '0.5px', color: '#111' }}>
+                    DATOS DEL CLIENTE
+                  </p>
+                  <p style={{ fontSize: '14px', margin: '5px 0', color: '#111' }}>{customer?.name ?? order.customer}</p>
+                  {customer?.email  && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.email}</p>}
+                  {customer?.phone  && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.phone}</p>}
+                  {customer?.city   && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.city}</p>}
+                </div>
+                {/* Right: company */}
+                <div style={{ flex: 1, paddingLeft: '36px', textAlign: 'right' }}>
+                  <p style={{ fontWeight: '800', fontSize: '15px', marginBottom: '10px', color: '#111', textTransform: 'uppercase' }}>
+                    {companySettings.companyName}
+                  </p>
+                  {companySettings.email         && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{companySettings.email}</p>}
+                  {companySettings.instagramHandle && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{companySettings.instagramHandle}</p>}
+                </div>
+              </div>
+
+              {/* ── ITEMS TABLE ───────────────────────────────── */}
+              <div style={{ padding: '28px 44px 16px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #222' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1.5px solid #222' }}>
+                      <th style={{ textAlign: 'left', padding: '11px 18px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb' }}>Detalle</th>
+                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '100px' }}>Cantidad</th>
+                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '140px' }}>Precio</th>
+                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', width: '140px' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.items.map((item, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: '13px 18px', fontSize: '13px', borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }}>{item.product}</td>
+                        <td style={{ padding: '13px 16px', textAlign: 'center', fontSize: '13px', borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }}>
+                          {String(item.qty).padStart(2, '0')}
+                        </td>
+                        <td style={{ padding: '13px 16px', textAlign: 'center', fontSize: '13px', borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }}>
+                          {fmt(item.price)}
+                        </td>
+                        <td style={{ padding: '13px 16px', textAlign: 'center', fontSize: '13px', borderBottom: '1px solid #f0f0f0' }}>
+                          {fmt(item.subtotal)}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* empty rows to fill space like the design */}
+                    {order.items.length < 4 && Array.from({ length: 4 - order.items.length }).map((_, i) => (
+                      <tr key={`empty-${i}`}>
+                        <td style={{ padding: '13px 18px', borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }}>&nbsp;</td>
+                        <td style={{ borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }} />
+                        <td style={{ borderRight: '1px solid #eee', borderBottom: '1px solid #f0f0f0' }} />
+                        <td style={{ borderBottom: '1px solid #f0f0f0' }} />
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── DIVIDER ───────────────────────────────────── */}
+              <div style={{ margin: '0 44px', borderTop: '1.5px solid #aaa' }} />
+
+              {/* ── TOTAL ─────────────────────────────────────── */}
+              <div style={{ padding: '20px 44px', display: 'flex', justifyContent: 'flex-end' }}>
+                <table style={{ border: '1.5px solid #222', minWidth: '300px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '13px 24px', fontWeight: '800', fontSize: '15px', letterSpacing: '1.5px' }}>TOTAL</td>
+                      <td style={{ padding: '13px 24px', textAlign: 'right', fontWeight: '700', fontSize: '15px', borderLeft: '1px solid #ccc' }}>
+                        {fmt(order.total)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── BANK INFO ─────────────────────────────────── */}
+              <div style={{ padding: '12px 44px 28px' }}>
+                {(companySettings.bankKey || companySettings.bankAccountNumber) && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
+                    {/* Bancolombia pill */}
+                    <div style={{ background: '#fcd116', border: '1px solid #e8b800', borderRadius: '4px', padding: '5px 10px', fontWeight: '800', fontSize: '13px', color: '#333', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>{companySettings.bankName || 'Bancolombia'}</span>
+                      <span>🇨🇴</span>
+                    </div>
+                    <div style={{ fontSize: '13px', lineHeight: '1.9', color: '#333' }}>
+                      {companySettings.bankKey           && <div>Llave: {companySettings.bankKey}</div>}
+                      {companySettings.bankAccountNumber && <div>{companySettings.bankAccountType || 'Cuenta Ahorros'}: {companySettings.bankAccountNumber}</div>}
+                    </div>
+                  </div>
+                )}
+                {companySettings.bankMessage && (
+                  <div style={{ border: '1.5px solid #222', display: 'inline-block', padding: '7px 18px', fontSize: '13px', color: '#111' }}>
+                    {companySettings.bankMessage}
+                  </div>
+                )}
+              </div>
+
+              {/* ── FOOTER (dark concrete) ────────────────────── */}
+              <div style={{ background: darkConcreteBg, padding: '22px 44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ color: 'white', fontSize: '13px', lineHeight: '2.2' }}>
+                  {companySettings.tiktok && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ background: '#010101', borderRadius: '50%', width: '26px', height: '26px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>♪</span>
+                      <span>{companySettings.tiktok}</span>
+                    </div>
+                  )}
+                  {companySettings.whatsapp && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ background: '#25D366', borderRadius: '50%', width: '26px', height: '26px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>✆</span>
+                      <span>{companySettings.whatsapp}</span>
+                    </div>
+                  )}
+                  {companySettings.instagram && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ background: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', borderRadius: '50%', width: '26px', height: '26px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', flexShrink: 0 }}>◉</span>
+                      <span>{companySettings.instagram}</span>
+                    </div>
+                  )}
+                  {/* fallback if no social links configured */}
+                  {!companySettings.tiktok && !companySettings.whatsapp && !companySettings.instagram && (
+                    <span style={{ color: '#aaa', fontSize: '12px' }}>Configure las redes sociales en Configuración → Empresa</span>
+                  )}
+                </div>
+                <div style={{ borderLeft: '3px solid #666', paddingLeft: '20px', marginLeft: '20px' }}>
+                  <div style={{ color: '#ddd', fontSize: '16px', fontStyle: 'italic', fontWeight: '300', letterSpacing: '0.5px', textAlign: 'right' }}>
+                    {companySettings.slogan || 'Belleza natural en concreto'}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -219,6 +438,7 @@ export default function Sales() {
   const [statusFilter, setStatus]   = useState('all')
   const [showModal, setShowModal]   = useState(false)
   const [detail, setDetail]         = useState<SaleOrder | null>(null)
+  const [invoice, setInvoice]       = useState<SaleOrder | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleOrder | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
@@ -307,6 +527,10 @@ export default function Sales() {
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     <button className="btn btn-sm btn-secondary" onClick={() => setDetail(o)}>Ver</button>
+                    <button className="btn btn-sm flex items-center gap-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                      onClick={() => setInvoice(o)} title="Ver factura">
+                      <FileText size={12} />
+                    </button>
                     {canDelete('sales') && (
                       <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
                         onClick={() => setDeleteTarget(o)}>
@@ -328,7 +552,8 @@ export default function Sales() {
       </div>
 
       {showModal && <NewSaleModal onClose={() => setShowModal(false)} />}
-      {detail    && <OrderDetail order={detail} onClose={() => setDetail(null)} />}
+      {detail    && <OrderDetail order={detail} onClose={() => setDetail(null)} onInvoice={() => { setInvoice(detail); setDetail(null) }} />}
+      {invoice   && <InvoiceModal order={invoice} onClose={() => setInvoice(null)} />}
       {deleteTarget && (
         <ConfirmDelete
           name={`${deleteTarget.orderNumber} — ${deleteTarget.customer}`}

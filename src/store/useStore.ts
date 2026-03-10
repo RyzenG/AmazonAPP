@@ -26,6 +26,16 @@ export interface CompanySettings {
   currency: string
   timezone: string
   logo: string | null
+  // Invoice / factura fields
+  bankName: string
+  bankKey: string
+  bankAccountType: string
+  bankAccountNumber: string
+  bankMessage: string
+  tiktok: string
+  whatsapp: string
+  instagram: string
+  instagramHandle: string
 }
 
 interface AppState {
@@ -144,13 +154,22 @@ const initialDark          = getDarkMode()
 
 const defaultCompanySettings: CompanySettings = {
   companyName: 'Amazonia Concrete',
-  slogan: '',
+  slogan: 'Belleza natural en concreto',
   email: '',
   phone: '',
   address: '',
   currency: 'COP',
   timezone: 'America/Bogota',
   logo: lsGet<string | null>('erp_logo', null),
+  bankName: 'Bancolombia',
+  bankKey: '',
+  bankAccountType: 'Cuenta Ahorros',
+  bankAccountNumber: '',
+  bankMessage: '',
+  tiktok: '',
+  whatsapp: '',
+  instagram: '',
+  instagramHandle: '',
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -184,14 +203,23 @@ export const useStore = create<AppState>((set, get) => ({
         ])
 
       const companySettings: CompanySettings = {
-        companyName: settings.companyName ?? defaultCompanySettings.companyName,
-        slogan:      settings.slogan      ?? defaultCompanySettings.slogan,
-        email:       settings.email       ?? defaultCompanySettings.email,
-        phone:       settings.phone       ?? defaultCompanySettings.phone,
-        address:     settings.address     ?? defaultCompanySettings.address,
-        currency:    settings.currency    ?? defaultCompanySettings.currency,
-        timezone:    settings.timezone    ?? defaultCompanySettings.timezone,
-        logo:        settings.logo        ?? lsGet<string | null>('erp_logo', null),
+        companyName:        settings.companyName        ?? defaultCompanySettings.companyName,
+        slogan:             settings.slogan             ?? defaultCompanySettings.slogan,
+        email:              settings.email              ?? defaultCompanySettings.email,
+        phone:              settings.phone              ?? defaultCompanySettings.phone,
+        address:            settings.address            ?? defaultCompanySettings.address,
+        currency:           settings.currency           ?? defaultCompanySettings.currency,
+        timezone:           settings.timezone           ?? defaultCompanySettings.timezone,
+        logo:               settings.logo               ?? lsGet<string | null>('erp_logo', null),
+        bankName:           settings.bankName           ?? defaultCompanySettings.bankName,
+        bankKey:            settings.bankKey            ?? defaultCompanySettings.bankKey,
+        bankAccountType:    settings.bankAccountType    ?? defaultCompanySettings.bankAccountType,
+        bankAccountNumber:  settings.bankAccountNumber  ?? defaultCompanySettings.bankAccountNumber,
+        bankMessage:        settings.bankMessage        ?? defaultCompanySettings.bankMessage,
+        tiktok:             settings.tiktok             ?? defaultCompanySettings.tiktok,
+        whatsapp:           settings.whatsapp           ?? defaultCompanySettings.whatsapp,
+        instagram:          settings.instagram          ?? defaultCompanySettings.instagram,
+        instagramHandle:    settings.instagramHandle    ?? defaultCompanySettings.instagramHandle,
       }
 
       set({ supplies, products, productionOrders, customers, saleOrders, recipes, companySettings, dataLoaded: true })
