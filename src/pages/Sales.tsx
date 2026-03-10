@@ -236,17 +236,24 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 
   return (
     <>
-      {/* Print-only style injected into head */}
+      {/* Print-only style — visibility trick so modal chrome is hidden */}
       <style>{`
         @media print {
-          body > *:not(#invoice-print-root) { display: none !important; }
-          #invoice-print-root { position: fixed; inset: 0; z-index: 9999; background: white; }
+          body * { visibility: hidden; }
+          #invoice-print-content,
+          #invoice-print-content * { visibility: visible; }
+          #invoice-print-content {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            background: white;
+          }
           .invoice-no-print { display: none !important; }
-          @page { margin: 0; size: A4; }
+          @page { margin: 0; size: A4 portrait; }
         }
       `}</style>
 
-      <div id="invoice-print-root" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
 
           {/* Toolbar — hidden when printing */}
@@ -265,62 +272,62 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 
           {/* Invoice body — scrollable in modal, fills page when printing */}
           <div className="overflow-y-auto flex-1">
-            <div style={{ background: 'white', fontFamily: 'Arial, Helvetica, sans-serif', color: '#111' }}>
+            <div id="invoice-print-content" style={{ background: 'white', fontFamily: 'Arial, Helvetica, sans-serif', color: '#111' }}>
 
               {/* ── HEADER (concrete texture) ─────────────────── */}
-              <div style={{ background: concreteBg, padding: '36px 44px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ background: concreteBg, padding: '40px 48px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontSize: '52px', fontWeight: '900', color: '#1e3a0f', letterSpacing: '-1px', lineHeight: 1, textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: '56px', fontWeight: '900', color: '#1B4332', letterSpacing: '-1px', lineHeight: 1, textTransform: 'uppercase' }}>
                     FACTURA
                   </div>
-                  <div style={{ marginTop: '10px', background: 'white', border: '1.5px solid #999', padding: '5px 18px', display: 'inline-block' }}>
+                  <div style={{ marginTop: '12px', background: 'white', border: '1.5px solid #888', padding: '5px 20px', display: 'inline-block' }}>
                     <span style={{ fontSize: '15px', fontWeight: '700', color: '#222' }}>Nº: {invoiceNum}</span>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   {companySettings.logo ? (
                     <img src={companySettings.logo} alt="Logo"
-                      style={{ height: '110px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+                      style={{ height: '130px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.25))' }} />
                   ) : (
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '900', color: '#1e3a0f', letterSpacing: '2px' }}>AMAZONIA</div>
-                      <div style={{ fontSize: '11px', letterSpacing: '5px', color: '#444', borderTop: '1px solid #666', paddingTop: '3px', marginTop: '2px' }}>CONCRETE</div>
+                      <div style={{ fontSize: '34px', fontWeight: '900', color: '#1B4332', letterSpacing: '2px' }}>AMAZONIA</div>
+                      <div style={{ fontSize: '11px', letterSpacing: '5px', color: '#444', borderTop: '1px solid #666', paddingTop: '4px', marginTop: '3px' }}>CONCRETE</div>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* ── CLIENT + COMPANY INFO ─────────────────────── */}
-              <div style={{ padding: '28px 44px', display: 'flex', borderBottom: '1px solid #e0e0e0' }}>
+              <div style={{ padding: '36px 48px', display: 'flex', borderBottom: '1px solid #e0e0e0' }}>
                 {/* Left: client */}
-                <div style={{ flex: 1, borderRight: '1.5px solid #ccc', paddingRight: '36px' }}>
-                  <p style={{ fontWeight: '800', fontSize: '12px', marginBottom: '14px', letterSpacing: '0.5px', color: '#111' }}>
+                <div style={{ flex: 1, borderRight: '1.5px solid #ccc', paddingRight: '40px' }}>
+                  <p style={{ fontWeight: '800', fontSize: '12px', marginBottom: '14px', letterSpacing: '0.5px', color: '#1B4332' }}>
                     DATOS DEL CLIENTE
                   </p>
-                  <p style={{ fontSize: '14px', margin: '5px 0', color: '#111' }}>{customer?.name ?? order.customer}</p>
-                  {customer?.email  && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.email}</p>}
-                  {customer?.phone  && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.phone}</p>}
-                  {customer?.city   && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{customer.city}</p>}
+                  <p style={{ fontSize: '14px', margin: '5px 0', color: '#1B4332' }}>{customer?.name ?? order.customer}</p>
+                  {customer?.email  && <p style={{ fontSize: '13px', margin: '5px 0', color: '#1B4332' }}>{customer.email}</p>}
+                  {customer?.phone  && <p style={{ fontSize: '13px', margin: '5px 0', color: '#1B4332' }}>{customer.phone}</p>}
+                  {customer?.city   && <p style={{ fontSize: '13px', margin: '5px 0', color: '#1B4332' }}>{customer.city}</p>}
                 </div>
                 {/* Right: company */}
-                <div style={{ flex: 1, paddingLeft: '36px', textAlign: 'right' }}>
-                  <p style={{ fontWeight: '800', fontSize: '15px', marginBottom: '10px', color: '#111', textTransform: 'uppercase' }}>
+                <div style={{ flex: 1, paddingLeft: '40px', textAlign: 'right' }}>
+                  <p style={{ fontWeight: '800', fontSize: '15px', marginBottom: '12px', color: '#111', textTransform: 'uppercase' }}>
                     {companySettings.companyName}
                   </p>
-                  {companySettings.email         && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{companySettings.email}</p>}
-                  {companySettings.instagramHandle && <p style={{ fontSize: '13px', margin: '4px 0', color: '#555' }}>{companySettings.instagramHandle}</p>}
+                  {companySettings.email           && <p style={{ fontSize: '13px', margin: '5px 0', color: '#555' }}>{companySettings.email}</p>}
+                  {companySettings.instagramHandle && <p style={{ fontSize: '13px', margin: '5px 0', color: '#555' }}>{companySettings.instagramHandle}</p>}
                 </div>
               </div>
 
               {/* ── ITEMS TABLE ───────────────────────────────── */}
-              <div style={{ padding: '28px 44px 16px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #222' }}>
+              <div style={{ padding: '32px 48px 16px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #333' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1.5px solid #222' }}>
-                      <th style={{ textAlign: 'left', padding: '11px 18px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb' }}>Detalle</th>
-                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '100px' }}>Cantidad</th>
-                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '140px' }}>Precio</th>
-                      <th style={{ textAlign: 'center', padding: '11px 16px', fontSize: '14px', fontWeight: '700', width: '140px' }}>Total</th>
+                    <tr style={{ borderBottom: '1.5px solid #333', backgroundColor: '#f5f5f5' }}>
+                      <th style={{ textAlign: 'left', padding: '12px 18px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb' }}>Detalle</th>
+                      <th style={{ textAlign: 'center', padding: '12px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '100px' }}>Cantidad</th>
+                      <th style={{ textAlign: 'center', padding: '12px 16px', fontSize: '14px', fontWeight: '700', borderRight: '1px solid #bbb', width: '140px' }}>Precio</th>
+                      <th style={{ textAlign: 'center', padding: '12px 16px', fontSize: '14px', fontWeight: '700', width: '140px' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -352,11 +359,11 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
               </div>
 
               {/* ── DIVIDER ───────────────────────────────────── */}
-              <div style={{ margin: '0 44px', borderTop: '1.5px solid #aaa' }} />
+              <div style={{ margin: '8px 48px', borderTop: '1.5px solid #999' }} />
 
               {/* ── TOTAL ─────────────────────────────────────── */}
-              <div style={{ padding: '20px 44px', display: 'flex', justifyContent: 'flex-end' }}>
-                <table style={{ border: '1.5px solid #222', minWidth: '300px' }}>
+              <div style={{ padding: '24px 48px', display: 'flex', justifyContent: 'flex-end' }}>
+                <table style={{ border: '2px solid #222', minWidth: '300px' }}>
                   <tbody>
                     <tr>
                       <td style={{ padding: '13px 24px', fontWeight: '800', fontSize: '15px', letterSpacing: '1.5px' }}>TOTAL</td>
@@ -369,7 +376,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
               </div>
 
               {/* ── BANK INFO ─────────────────────────────────── */}
-              <div style={{ padding: '12px 44px 28px' }}>
+              <div style={{ padding: '16px 48px 32px' }}>
                 {(companySettings.bankKey || companySettings.bankAccountNumber) && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '14px' }}>
                     {/* Bancolombia pill */}
@@ -391,7 +398,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
               </div>
 
               {/* ── FOOTER (dark concrete) ────────────────────── */}
-              <div style={{ background: darkConcreteBg, padding: '22px 44px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: darkConcreteBg, padding: '24px 48px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ color: 'white', fontSize: '13px', lineHeight: '2.2' }}>
                   {companySettings.tiktok && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
