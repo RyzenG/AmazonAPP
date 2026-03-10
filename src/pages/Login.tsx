@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Leaf, LogIn, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
-const DEMO_EMAIL    = 'admin@empresa.com'
-const DEMO_PASSWORD = 'admin123'
-
 const FEATURES = [
   'Control completo de inventario y materias primas',
   'Órdenes de producción con seguimiento en tiempo real',
@@ -23,19 +20,28 @@ export default function Login() {
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        login({ name: 'Administrador', email: DEMO_EMAIL, role: 'Administrador' })
-        navigate('/', { replace: true })
-      } else {
-        setError('Correo o contraseña incorrectos')
+    try {
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Correo o contraseña incorrectos')
         setLoading(false)
+        return
       }
-    }, 600)
+      login({ name: data.name, email: data.email, role: data.role })
+      navigate('/', { replace: true })
+    } catch {
+      setError('No se pudo conectar con el servidor')
+      setLoading(false)
+    }
   }
 
   const logo = companySettings.logo
@@ -129,7 +135,7 @@ export default function Login() {
             </form>
 
             <p className="text-xs text-slate-400 text-center mt-5 border-t border-stone-100 pt-4">
-              Demo: <span className="font-mono">admin@empresa.com</span> / <span className="font-mono">admin123</span>
+              Acceso admin: <span className="font-mono">admin@empresa.com</span> / <span className="font-mono">admin123</span>
             </p>
           </div>
         </div>

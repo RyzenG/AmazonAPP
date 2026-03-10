@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw } from 'lucide-react'
+import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 const TAB_ICONS: Record<string, any> = {
@@ -33,21 +33,26 @@ const ACTION_BADGE: Record<string, string> = {
   restablecer:  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
 }
 
-const USERS = [
-  { id:1, name:'Admin General',    email:'admin@empresa.com',    role:'Administrador', isActive:true  },
-  { id:2, name:'María García',     email:'maria@empresa.com',    role:'Producción',    isActive:true  },
-  { id:3, name:'Carlos López',     email:'carlos@empresa.com',   role:'Producción',    isActive:true  },
-  { id:4, name:'Ana Ramos',        email:'ana@empresa.com',      role:'Ventas',        isActive:true  },
-  { id:5, name:'Roberto Méndez',   email:'roberto@empresa.com',  role:'Inventario',    isActive:false },
-]
+interface AppUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  isActive: boolean
+  createdAt?: string
+}
 
-const ROLES = [
-  { name:'Administrador', perms:['Todo el sistema'],   color:'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  { name:'Producción',    perms:['Producción','Inventario (lectura)'], color:'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { name:'Ventas',        perms:['Ventas','CRM','Catálogo (lectura)'], color:'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  { name:'Inventario',    perms:['Inventario','Catálogo'],             color:'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-  { name:'Contabilidad',  perms:['Reportes','Facturación','Costos'],   color:'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-]
+const ROLE_OPTIONS = ['Administrador','Producción','Ventas','Inventario','Contabilidad']
+
+const ROLE_COLOR: Record<string, string> = {
+  Administrador: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  Producción:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  Ventas:        'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  Inventario:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  Contabilidad:  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+}
+
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'Ventas', isActive: true }
 
 export default function Settings() {
   const [activeTab, setActiveTab]       = useState('empresa')
@@ -62,6 +67,18 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
+  // ── Users state ─────────────────────────────────────────────────────────────
+  const [users, setUsers]               = useState<AppUser[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [userModal, setUserModal]       = useState<'add' | 'edit' | null>(null)
+  const [editingUser, setEditingUser]   = useState<AppUser | null>(null)
+  const [userForm, setUserForm]         = useState({ ...EMPTY_FORM })
+  const [showFormPwd, setShowFormPwd]   = useState(false)
+  const [userSaving, setUserSaving]     = useState(false)
+  const [userError, setUserError]       = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
+  const [deleting, setDeleting]         = useState(false)
+
   const loadAudit = async () => {
     setAuditLoading(true)
     try {
@@ -72,8 +89,95 @@ export default function Settings() {
     }
   }
 
+  const loadUsers = async () => {
+    setUsersLoading(true)
+    try {
+      const data = await fetch('/api/users').then((r) => r.json())
+      setUsers(Array.isArray(data) ? data : [])
+    } catch { /* ignore */ } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  const openAddUser = () => {
+    setUserForm({ ...EMPTY_FORM })
+    setUserError('')
+    setShowFormPwd(false)
+    setEditingUser(null)
+    setUserModal('add')
+  }
+
+  const openEditUser = (u: AppUser) => {
+    setUserForm({ name: u.name, email: u.email, password: '', role: u.role, isActive: u.isActive })
+    setUserError('')
+    setShowFormPwd(false)
+    setEditingUser(u)
+    setUserModal('edit')
+  }
+
+  const closeUserModal = () => { setUserModal(null); setEditingUser(null) }
+
+  const getUserHeader = () => {
+    try {
+      const raw = localStorage.getItem('erp_auth')
+      return raw ? { 'x-user': raw } : {}
+    } catch { return {} }
+  }
+
+  const handleSaveUser = async () => {
+    if (!userForm.name.trim() || !userForm.email.trim()) {
+      setUserError('Nombre y correo son obligatorios')
+      return
+    }
+    if (userModal === 'add' && !userForm.password.trim()) {
+      setUserError('La contraseña es obligatoria para nuevos usuarios')
+      return
+    }
+    setUserSaving(true)
+    setUserError('')
+    try {
+      const headers = { 'Content-Type': 'application/json', ...getUserHeader() }
+      if (userModal === 'add') {
+        const id = 'u' + Date.now()
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ ...userForm, id }),
+        })
+        const data = await res.json()
+        if (!res.ok) { setUserError(data.error ?? 'Error al crear usuario'); return }
+        setUsers((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+      } else if (userModal === 'edit' && editingUser) {
+        const res = await fetch(`/api/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(userForm),
+        })
+        const data = await res.json()
+        if (!res.ok) { setUserError(data.error ?? 'Error al guardar'); return }
+        setUsers((prev) => prev.map((u) => u.id === editingUser.id ? data : u))
+      }
+      closeUserModal()
+    } catch { setUserError('Error de conexión con el servidor')
+    } finally { setUserSaving(false) }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await fetch(`/api/users/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { ...getUserHeader() },
+      })
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch { /* ignore */ } finally { setDeleting(false) }
+  }
+
   useEffect(() => {
     if (activeTab === 'auditoria') loadAudit()
+    if (activeTab === 'usuarios')  loadUsers()
   }, [activeTab])
 
   const { companySettings, saveCompanySettings, factoryReset } = useStore()
@@ -286,34 +390,79 @@ export default function Settings() {
 
           {activeTab === 'usuarios' && (
             <div className="space-y-6">
-              <h2 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2"><Users size={18} /> Usuarios y roles</h2>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-3">Usuarios del sistema</h3>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Users size={18} /> Usuarios y roles
+                </h2>
+                <div className="flex items-center gap-2">
+                  <button onClick={loadUsers} disabled={usersLoading}
+                    className="btn btn-secondary flex items-center gap-2 text-xs">
+                    <RefreshCw size={13} className={usersLoading ? 'animate-spin' : ''} />
+                    Actualizar
+                  </button>
+                  <button onClick={openAddUser}
+                    className="btn btn-primary flex items-center gap-2 text-xs">
+                    <Plus size={14} /> Nuevo usuario
+                  </button>
+                </div>
+              </div>
+
+              {/* Users table */}
+              <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-gray-700">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-100 dark:border-gray-700">
+                    <tr className="bg-slate-50 dark:bg-gray-700/50 border-b border-slate-200 dark:border-gray-700">
                       {['Nombre','Email','Rol','Estado','Acciones'].map((h) => (
                         <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-gray-400">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {USERS.map((u) => (
-                      <tr key={u.id} className="table-row">
-                        <td className="px-4 py-3 font-medium text-slate-800 dark:text-gray-200">{u.name}</td>
+                    {usersLoading && (
+                      <tr><td colSpan={5} className="text-center py-10 text-slate-400 dark:text-gray-500 text-sm">Cargando...</td></tr>
+                    )}
+                    {!usersLoading && users.length === 0 && (
+                      <tr><td colSpan={5} className="text-center py-10 text-slate-400 dark:text-gray-500 text-sm">Sin usuarios</td></tr>
+                    )}
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs flex-shrink-0">
+                              {u.name.split(' ').map((w) => w[0]).slice(0,2).join('')}
+                            </div>
+                            <span className="font-medium text-slate-800 dark:text-gray-200">{u.name}</span>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{u.email}</td>
-                        <td className="px-4 py-3"><span className="badge badge-blue">{u.role}</span></td>
+                        <td className="px-4 py-3">
+                          <span className={`badge ${ROLE_COLOR[u.role] ?? 'badge-blue'}`}>{u.role}</span>
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`badge ${u.isActive ? 'badge-green' : 'badge-gray'}`}>
                             {u.isActive ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
-                        <td className="px-4 py-3"><button className="btn btn-sm btn-secondary">Editar</button></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => openEditUser(u)}
+                              className="btn btn-sm btn-secondary flex items-center gap-1.5">
+                              <Pencil size={13} /> Editar
+                            </button>
+                            <button onClick={() => setDeleteTarget(u)}
+                              className="btn btn-sm flex items-center gap-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800">
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* Permissions matrix */}
               <div>
                 <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-3">Matriz de permisos por rol</h3>
                 <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-gray-700">
@@ -328,20 +477,15 @@ export default function Settings() {
                     </thead>
                     <tbody>
                       {[
-                        { role:'Administrador', color:'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                          perms: ['✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar'] },
-                        { role:'Producción',    color:'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                          perms: ['✏️ Editar','Solo lectura','Solo lectura','Solo lectura','✏️ Editar'] },
-                        { role:'Ventas',        color:'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                          perms: ['Solo lectura','Solo lectura','✏️ Editar','✏️ Editar','Solo lectura'] },
-                        { role:'Inventario',    color:'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-                          perms: ['✏️ Editar','✏️ Editar','Solo lectura','Solo lectura','Solo lectura'] },
-                        { role:'Contabilidad',  color:'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-                          perms: ['Solo lectura','Solo lectura','Solo lectura','Solo lectura','Solo lectura'] },
+                        { role:'Administrador', perms:['✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar','✏️ Editar / 🗑️ Eliminar'] },
+                        { role:'Producción',    perms:['✏️ Editar','Solo lectura','Solo lectura','Solo lectura','✏️ Editar'] },
+                        { role:'Ventas',        perms:['Solo lectura','Solo lectura','✏️ Editar','✏️ Editar','Solo lectura'] },
+                        { role:'Inventario',    perms:['✏️ Editar','✏️ Editar','Solo lectura','Solo lectura','Solo lectura'] },
+                        { role:'Contabilidad',  perms:['Solo lectura','Solo lectura','Solo lectura','Solo lectura','Solo lectura'] },
                       ].map((row) => (
                         <tr key={row.role} className="border-b border-slate-100 dark:border-gray-700">
                           <td className="px-4 py-2.5">
-                            <span className={`badge ${row.color}`}>{row.role}</span>
+                            <span className={`badge ${ROLE_COLOR[row.role]}`}>{row.role}</span>
                           </td>
                           {row.perms.map((p, i) => (
                             <td key={i} className={`px-3 py-2.5 text-center ${
@@ -359,6 +503,118 @@ export default function Settings() {
                   Solo el rol <strong>Administrador</strong> puede eliminar registros en cualquier módulo.
                 </p>
               </div>
+
+              {/* ── Add / Edit User Modal ── */}
+              {userModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white">
+                        {userModal === 'add' ? 'Nuevo usuario' : 'Editar usuario'}
+                      </h3>
+                      <button onClick={closeUserModal} className="text-slate-400 hover:text-slate-600 dark:hover:text-gray-200">
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="label">Nombre completo *</label>
+                        <input className="input" value={userForm.name}
+                          onChange={(e) => setUserForm((f) => ({ ...f, name: e.target.value }))}
+                          placeholder="Juan Pérez" />
+                      </div>
+                      <div>
+                        <label className="label">Correo electrónico *</label>
+                        <input className="input" type="email" value={userForm.email}
+                          onChange={(e) => setUserForm((f) => ({ ...f, email: e.target.value }))}
+                          placeholder="juan@empresa.com" />
+                      </div>
+                      <div>
+                        <label className="label">
+                          Contraseña {userModal === 'edit' && <span className="text-slate-400 font-normal">(dejar vacío para no cambiar)</span>}
+                          {userModal === 'add' && ' *'}
+                        </label>
+                        <div className="relative">
+                          <input className="input pr-10"
+                            type={showFormPwd ? 'text' : 'password'}
+                            value={userForm.password}
+                            onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
+                            placeholder="••••••••" />
+                          <button type="button"
+                            onClick={() => setShowFormPwd((v) => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            {showFormPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">Rol</label>
+                        <select className="input" value={userForm.role}
+                          onChange={(e) => setUserForm((f) => ({ ...f, role: e.target.value }))}>
+                          {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between p-3 border border-slate-200 dark:border-gray-600 rounded-lg">
+                        <span className="text-sm text-slate-700 dark:text-gray-200">Usuario activo</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer"
+                            checked={userForm.isActive}
+                            onChange={(e) => setUserForm((f) => ({ ...f, isActive: e.target.checked }))} />
+                          <div className="w-9 h-5 bg-slate-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                        </label>
+                      </div>
+
+                      {userError && (
+                        <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 rounded-lg">
+                          {userError}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                      <button onClick={closeUserModal} className="btn btn-secondary" disabled={userSaving}>
+                        Cancelar
+                      </button>
+                      <button onClick={handleSaveUser} disabled={userSaving}
+                        className="btn btn-primary disabled:opacity-60 flex items-center gap-2">
+                        {userSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={14} />}
+                        {userSaving ? 'Guardando...' : userModal === 'add' ? 'Crear usuario' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Delete confirmation modal ── */}
+              {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Trash2 size={18} className="text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800 dark:text-white">Eliminar usuario</h3>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Esta acción no se puede deshacer</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-gray-300 mb-5">
+                      ¿Eliminar a <strong>{deleteTarget.name}</strong> ({deleteTarget.email})?
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button onClick={() => setDeleteTarget(null)} className="btn btn-secondary" disabled={deleting}>
+                        Cancelar
+                      </button>
+                      <button onClick={handleDeleteUser} disabled={deleting}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white transition-colors">
+                        {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={14} />}
+                        {deleting ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

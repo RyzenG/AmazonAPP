@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 
 import { pool } from './db.js'
+import usersRouter          from './routes/users.js'
 import suppliesRouter       from './routes/supplies.js'
 import productsRouter       from './routes/products.js'
 import productionOrdersRouter from './routes/productionOrders.js'
@@ -32,6 +33,15 @@ async function migrate() {
       ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';
       ALTER TABLE recipe_ingredients ADD COLUMN IF NOT EXISTS cost NUMERIC NOT NULL DEFAULT 0;
       ALTER TABLE supplies ADD COLUMN IF NOT EXISTS sku TEXT;
+      CREATE TABLE IF NOT EXISTS users (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        email      TEXT NOT NULL UNIQUE,
+        password   TEXT NOT NULL,
+        role       TEXT NOT NULL DEFAULT 'Ventas',
+        is_active  BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS audit_log (
         id          SERIAL PRIMARY KEY,
         user_name   TEXT NOT NULL DEFAULT 'Sistema',
@@ -44,6 +54,20 @@ async function migrate() {
         created_at  TIMESTAMP DEFAULT NOW()
       );
     `)
+    // Seed default admin if no users exist
+    const { rowCount } = await pool.query('SELECT 1 FROM users LIMIT 1')
+    if (rowCount === 0) {
+      await pool.query(
+        `INSERT INTO users (id, name, email, password, role, is_active)
+         VALUES ('u1','Admin General','admin@empresa.com','admin123','Administrador',true),
+                ('u2','María García','maria@empresa.com','maria123','Producción',true),
+                ('u3','Carlos López','carlos@empresa.com','carlos123','Producción',true),
+                ('u4','Ana Ramos','ana@empresa.com','ana123','Ventas',true),
+                ('u5','Roberto Méndez','roberto@empresa.com','roberto123','Inventario',false)
+         ON CONFLICT (id) DO NOTHING`
+      )
+      console.log('✅ Default users seeded')
+    }
     console.log('✅ Migrations OK')
   } catch (e) {
     console.error('⚠️  Migration error:', e.message)
@@ -54,6 +78,7 @@ migrate()
 app.use(cors())
 app.use(express.json({ limit: '10mb' })) // limit amplio para logos base64
 
+app.use('/api/users',             usersRouter)
 app.use('/api/supplies',          suppliesRouter)
 app.use('/api/products',          productsRouter)
 app.use('/api/production-orders', productionOrdersRouter)
