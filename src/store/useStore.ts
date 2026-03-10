@@ -36,6 +36,12 @@ export interface CompanySettings {
   whatsapp: string
   instagram: string
   instagramHandle: string
+  // SMTP / email
+  smtpHost: string
+  smtpPort: number
+  smtpUser: string
+  smtpPass: string
+  smtpFrom: string
 }
 
 interface AppState {
@@ -170,6 +176,11 @@ const defaultCompanySettings: CompanySettings = {
   whatsapp: '',
   instagram: '',
   instagramHandle: '',
+  smtpHost: '',
+  smtpPort: 587,
+  smtpUser: '',
+  smtpPass: '',
+  smtpFrom: '',
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -220,6 +231,11 @@ export const useStore = create<AppState>((set, get) => ({
         whatsapp:           settings.whatsapp           ?? defaultCompanySettings.whatsapp,
         instagram:          settings.instagram          ?? defaultCompanySettings.instagram,
         instagramHandle:    settings.instagramHandle    ?? defaultCompanySettings.instagramHandle,
+        smtpHost:           settings.smtpHost           ?? defaultCompanySettings.smtpHost,
+        smtpPort:           settings.smtpPort           ?? defaultCompanySettings.smtpPort,
+        smtpUser:           settings.smtpUser           ?? defaultCompanySettings.smtpUser,
+        smtpPass:           settings.smtpPass           ?? defaultCompanySettings.smtpPass,
+        smtpFrom:           settings.smtpFrom           ?? defaultCompanySettings.smtpFrom,
       }
 
       set({ supplies, products, productionOrders, customers, saleOrders, recipes, companySettings, dataLoaded: true })

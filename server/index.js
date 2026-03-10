@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 
 import { pool } from './db.js'
 import usersRouter          from './routes/users.js'
+import emailRouter          from './routes/email.js'
 import suppliesRouter       from './routes/supplies.js'
 import productsRouter       from './routes/products.js'
 import productionOrdersRouter from './routes/productionOrders.js'
@@ -42,6 +43,11 @@ async function migrate() {
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS whatsapp           TEXT DEFAULT '';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram          TEXT DEFAULT '';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS instagram_handle   TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_host     TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_port     INTEGER DEFAULT 587;
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_user     TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_pass     TEXT DEFAULT '';
+      ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_from     TEXT DEFAULT '';
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,
@@ -88,6 +94,7 @@ app.use(cors())
 app.use(express.json({ limit: '10mb' })) // limit amplio para logos base64
 
 app.use('/api/users',             usersRouter)
+app.use('/api/email',             emailRouter)
 app.use('/api/supplies',          suppliesRouter)
 app.use('/api/products',          productsRouter)
 app.use('/api/production-orders', productionOrdersRouter)

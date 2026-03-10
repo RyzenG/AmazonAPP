@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -222,6 +222,44 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
   const { customers, companySettings } = useStore()
   const customer = customers.find((c) => c.id === order.customerId)
 
+  // Email modal state
+  const [emailModal, setEmailModal]   = useState(false)
+  const [emailTo, setEmailTo]         = useState(customer?.email ?? '')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailResult, setEmailResult] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const handleSendEmail = async () => {
+    if (!emailTo.trim()) return
+    setEmailSending(true)
+    setEmailResult(null)
+    try {
+      const res = await fetch('/api/email/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...((() => { try { const r = localStorage.getItem('erp_auth'); return r ? { 'x-user': r } : {} } catch { return {} } })()) },
+        body: JSON.stringify({
+          order: { ...order, items: order.items },
+          customer: {
+            name:  customer?.name  ?? order.customer,
+            email: customer?.email ?? '',
+            phone: customer?.phone ?? '',
+            city:  customer?.city  ?? '',
+          },
+          recipientEmail: emailTo.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setEmailResult({ ok: true, text: data.message ?? 'Factura enviada con éxito' })
+      } else {
+        setEmailResult({ ok: false, text: data.error ?? 'Error al enviar' })
+      }
+    } catch {
+      setEmailResult({ ok: false, text: 'Error de conexión con el servidor' })
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   // Extract numeric invoice number from order number (e.g. "VTA-2024-007" → "007")
   const invoiceNum = (order.orderNumber ?? '').split('-').pop() ?? order.orderNumber ?? '001'
 
@@ -260,6 +298,10 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
           <div className="invoice-no-print flex items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-200 flex-shrink-0">
             <h3 className="font-semibold text-slate-800 text-sm">Vista previa — Factura {order.orderNumber}</h3>
             <div className="flex items-center gap-3">
+              <button onClick={() => { setEmailModal(true); setEmailResult(null) }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Mail size={15} /> Enviar por correo
+              </button>
               <button onClick={handlePrint}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
                 <Printer size={15} /> Imprimir / PDF
@@ -269,6 +311,61 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
               </button>
             </div>
           </div>
+
+          {/* ── Email modal ── */}
+          {emailModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Mail size={18} className="text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-white">Enviar factura por correo</h3>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{order.orderNumber}</p>
+                  </div>
+                  <button onClick={() => { setEmailModal(false); setEmailResult(null) }}
+                    className="ml-auto text-slate-400 hover:text-slate-600 dark:hover:text-gray-200">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="label">Correo del destinatario</label>
+                    <input className="input" type="email"
+                      placeholder="cliente@email.com"
+                      value={emailTo}
+                      onChange={(e) => setEmailTo(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendEmail()} />
+                  </div>
+
+                  {emailResult && (
+                    <div className={`text-sm px-3 py-2.5 rounded-lg border ${emailResult.ok
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
+                      {emailResult.text}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-1">
+                    <button onClick={() => { setEmailModal(false); setEmailResult(null) }}
+                      className="btn btn-secondary" disabled={emailSending}>
+                      {emailResult?.ok ? 'Cerrar' : 'Cancelar'}
+                    </button>
+                    {!emailResult?.ok && (
+                      <button onClick={handleSendEmail} disabled={emailSending || !emailTo.trim()}
+                        className="btn btn-primary disabled:opacity-60 flex items-center gap-2">
+                        {emailSending
+                          ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enviando...</>
+                          : <><Send size={14} /> Enviar factura</>}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Invoice body — scrollable in modal, fills page when printing */}
           <div className="overflow-y-auto flex-1">

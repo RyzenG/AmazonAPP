@@ -211,7 +211,14 @@ export default function Settings() {
     whatsapp:          companySettings.whatsapp,
     instagram:         companySettings.instagram,
     instagramHandle:   companySettings.instagramHandle,
+    smtpHost:          companySettings.smtpHost,
+    smtpPort:          String(companySettings.smtpPort ?? 587),
+    smtpUser:          companySettings.smtpUser,
+    smtpPass:          companySettings.smtpPass,
+    smtpFrom:          companySettings.smtpFrom,
   })
+  const [smtpTesting, setSmtpTesting]  = useState(false)
+  const [smtpTestMsg, setSmtpTestMsg]  = useState<{ ok: boolean; text: string } | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(companySettings.logo)
 
   // Sync local state when store loads from API
@@ -233,6 +240,11 @@ export default function Settings() {
       whatsapp:          companySettings.whatsapp,
       instagram:         companySettings.instagram,
       instagramHandle:   companySettings.instagramHandle,
+      smtpHost:          companySettings.smtpHost,
+      smtpPort:          String(companySettings.smtpPort ?? 587),
+      smtpUser:          companySettings.smtpUser,
+      smtpPass:          companySettings.smtpPass,
+      smtpFrom:          companySettings.smtpFrom,
     })
     setLogoPreview(companySettings.logo)
   }, [companySettings])
@@ -270,6 +282,11 @@ export default function Settings() {
         whatsapp:           company.whatsapp,
         instagram:          company.instagram,
         instagramHandle:    company.instagramHandle,
+        smtpHost:           company.smtpHost,
+        smtpPort:           Number(company.smtpPort) || 587,
+        smtpUser:           company.smtpUser,
+        smtpPass:           company.smtpPass,
+        smtpFrom:           company.smtpFrom,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -444,6 +461,86 @@ export default function Settings() {
                         onChange={(e) => setCompany({ ...company, [key]: e.target.value })} />
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* ── SMTP / Correo electrónico ── */}
+              <div className="border-t border-slate-100 dark:border-gray-700 pt-5">
+                <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-1 flex items-center gap-2">
+                  📧 Servidor de correo (SMTP) — para enviar facturas
+                </h3>
+                <p className="text-xs text-slate-400 dark:text-gray-500 mb-4">
+                  Gmail: host <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">smtp.gmail.com</code>, puerto <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">587</code>, usa una <strong>Contraseña de aplicación</strong>.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Servidor SMTP (host)</label>
+                    <input className="input" placeholder="smtp.gmail.com" value={company.smtpHost}
+                      onChange={(e) => setCompany({ ...company, smtpHost: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Puerto</label>
+                    <input className="input" placeholder="587" value={company.smtpPort}
+                      onChange={(e) => setCompany({ ...company, smtpPort: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Usuario / correo remitente</label>
+                    <input className="input" type="email" placeholder="tu@gmail.com" value={company.smtpUser}
+                      onChange={(e) => setCompany({ ...company, smtpUser: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="label">Contraseña de aplicación</label>
+                    <input className="input" type="password" placeholder="••••••••••••••••" value={company.smtpPass}
+                      onChange={(e) => setCompany({ ...company, smtpPass: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="label">Nombre del remitente (opcional)</label>
+                    <input className="input" placeholder="Amazonia Concrete &lt;tu@gmail.com&gt;" value={company.smtpFrom}
+                      onChange={(e) => setCompany({ ...company, smtpFrom: e.target.value })} />
+                  </div>
+                </div>
+                {/* Test button */}
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={smtpTesting || !company.smtpHost || !company.smtpUser || !company.smtpPass}
+                    className="btn btn-secondary text-xs flex items-center gap-2 disabled:opacity-50"
+                    onClick={async () => {
+                      const testEmail = window.prompt('¿A qué correo enviar el correo de prueba?', company.smtpUser)
+                      if (!testEmail) return
+                      setSmtpTesting(true)
+                      setSmtpTestMsg(null)
+                      try {
+                        const res = await fetch('/api/email/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            smtpHost: company.smtpHost,
+                            smtpPort: Number(company.smtpPort) || 587,
+                            smtpUser: company.smtpUser,
+                            smtpPass: company.smtpPass,
+                            smtpFrom: company.smtpFrom,
+                            testEmail,
+                          }),
+                        })
+                        const data = await res.json()
+                        if (res.ok) setSmtpTestMsg({ ok: true, text: `✅ Correo de prueba enviado a ${testEmail}` })
+                        else setSmtpTestMsg({ ok: false, text: data.error ?? 'Error desconocido' })
+                      } catch { setSmtpTestMsg({ ok: false, text: 'Error de conexión' })
+                      } finally { setSmtpTesting(false) }
+                    }}
+                  >
+                    {smtpTesting
+                      ? <><span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin" /> Probando...</>
+                      : '📤 Probar conexión SMTP'}
+                  </button>
+                  {smtpTestMsg && (
+                    <span className={`text-xs px-3 py-1.5 rounded-lg border ${smtpTestMsg.ok
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
+                      {smtpTestMsg.text}
+                    </span>
+                  )}
                 </div>
               </div>
 

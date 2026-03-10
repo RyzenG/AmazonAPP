@@ -1,0 +1,226 @@
+import { Router }    from 'express'
+import nodemailer    from 'nodemailer'
+import { pool }      from '../db.js'
+import { log, getUser } from '../audit.js'
+
+const router = Router()
+
+// ── Build HTML invoice ────────────────────────────────────────────────────────
+function buildInvoiceHtml({ order, customer, settings }) {
+  const fmt = (n) =>
+    '$ ' + Number(n).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+  const invoiceNum = (order.orderNumber ?? '').split('-').pop() ?? '001'
+
+  const itemRows = order.items.map((item) => `
+    <tr>
+      <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;border-right:1px solid #eee;font-size:13px;">${item.product}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;border-right:1px solid #eee;font-size:13px;text-align:center;">${String(item.qty).padStart(2,'0')}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;border-right:1px solid #eee;font-size:13px;text-align:center;">${fmt(item.price)}</td>
+      <td style="padding:12px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:center;">${fmt(item.subtotal)}</td>
+    </tr>`).join('')
+
+  const concreteBg = 'linear-gradient(120deg,#888 0%,#b0aea8 20%,#ccc9c4 45%,#b5b2ad 70%,#909090 100%)'
+  const darkBg     = 'linear-gradient(120deg,#2c2c2c 0%,#454545 30%,#3a3a3a 60%,#252525 100%)'
+  const green      = '#1B4332'
+
+  const logoHtml = settings.logo
+    ? `<img src="${settings.logo}" alt="Logo" style="height:110px;width:auto;object-fit:contain;">`
+    : `<div style="text-align:right;">
+         <div style="font-size:28px;font-weight:900;color:${green};letter-spacing:2px;">${settings.companyName.toUpperCase()}</div>
+         <div style="font-size:10px;letter-spacing:4px;color:#444;border-top:1px solid #666;padding-top:3px;margin-top:2px;">CONCRETE</div>
+       </div>`
+
+  const bankSection = (settings.bankKey || settings.bankAccountNumber) ? `
+    <div style="padding:16px 48px 28px;">
+      <div style="display:inline-flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+        <span style="background:#fcd116;border:1px solid #e8b800;border-radius:4px;padding:5px 10px;font-weight:800;font-size:12px;color:#333;white-space:nowrap;">${settings.bankName || 'Bancolombia'} 🇨🇴</span>
+        <div style="font-size:13px;line-height:1.9;color:#333;">
+          ${settings.bankKey ? `<div>Llave: ${settings.bankKey}</div>` : ''}
+          ${settings.bankAccountNumber ? `<div>${settings.bankAccountType || 'Cuenta Ahorros'}: ${settings.bankAccountNumber}</div>` : ''}
+        </div>
+      </div>
+      ${settings.bankMessage ? `<div style="border:1.5px solid #222;display:inline-block;padding:7px 18px;font-size:13px;color:#111;">${settings.bankMessage}</div>` : ''}
+    </div>` : ''
+
+  const socialLinks = [
+    settings.tiktok    ? `<div style="margin:4px 0;font-size:12px;">🎵 ${settings.tiktok}</div>` : '',
+    settings.whatsapp  ? `<div style="margin:4px 0;font-size:12px;">📱 ${settings.whatsapp}</div>` : '',
+    settings.instagram ? `<div style="margin:4px 0;font-size:12px;">📸 ${settings.instagram}</div>` : '',
+  ].join('')
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Factura ${order.orderNumber}</title></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:700px;margin:20px auto;background:white;box-shadow:0 2px 12px rgba(0,0,0,.15);">
+
+  <!-- HEADER -->
+  <div style="background:${concreteBg};padding:40px 48px 32px;display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <div style="font-size:52px;font-weight:900;color:${green};letter-spacing:-1px;line-height:1;">FACTURA</div>
+      <div style="margin-top:12px;background:white;border:1.5px solid #888;padding:5px 20px;display:inline-block;">
+        <span style="font-size:15px;font-weight:700;color:#222;">Nº: ${invoiceNum}</span>
+      </div>
+    </div>
+    <div style="text-align:right;">${logoHtml}</div>
+  </div>
+
+  <!-- CLIENT + COMPANY -->
+  <div style="padding:36px 48px;display:flex;border-bottom:1px solid #e0e0e0;">
+    <div style="flex:1;border-right:1.5px solid #ccc;padding-right:40px;">
+      <p style="font-weight:800;font-size:12px;margin:0 0 14px;letter-spacing:.5px;color:${green};">DATOS DEL CLIENTE</p>
+      <p style="font-size:14px;margin:5px 0;color:${green};">${customer.name}</p>
+      ${customer.email ? `<p style="font-size:13px;margin:5px 0;color:${green};">${customer.email}</p>` : ''}
+      ${customer.phone ? `<p style="font-size:13px;margin:5px 0;color:${green};">${customer.phone}</p>` : ''}
+      ${customer.city  ? `<p style="font-size:13px;margin:5px 0;color:${green};">${customer.city}</p>` : ''}
+    </div>
+    <div style="flex:1;padding-left:40px;text-align:right;">
+      <p style="font-weight:800;font-size:15px;margin:0 0 12px;color:#111;text-transform:uppercase;">${settings.companyName}</p>
+      ${settings.email ? `<p style="font-size:13px;margin:5px 0;color:#555;">${settings.email}</p>` : ''}
+      ${settings.instagramHandle ? `<p style="font-size:13px;margin:5px 0;color:#555;">${settings.instagramHandle}</p>` : ''}
+    </div>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <div style="padding:32px 48px 16px;">
+    <table style="width:100%;border-collapse:collapse;border:1.5px solid #333;">
+      <thead>
+        <tr style="border-bottom:1.5px solid #333;background:#f5f5f5;">
+          <th style="text-align:left;padding:12px 18px;font-size:14px;font-weight:700;border-right:1px solid #bbb;">Detalle</th>
+          <th style="text-align:center;padding:12px 16px;font-size:14px;font-weight:700;border-right:1px solid #bbb;width:100px;">Cantidad</th>
+          <th style="text-align:center;padding:12px 16px;font-size:14px;font-weight:700;border-right:1px solid #bbb;width:140px;">Precio</th>
+          <th style="text-align:center;padding:12px 16px;font-size:14px;font-weight:700;width:140px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+  </div>
+
+  <!-- DIVIDER -->
+  <div style="margin:8px 48px;border-top:1.5px solid #999;"></div>
+
+  <!-- TOTAL -->
+  <div style="padding:24px 48px;text-align:right;">
+    <table style="border:2px solid #222;min-width:280px;margin-left:auto;">
+      <tr>
+        <td style="padding:13px 24px;font-weight:800;font-size:15px;letter-spacing:1.5px;">TOTAL</td>
+        <td style="padding:13px 24px;text-align:right;font-weight:700;font-size:15px;border-left:1px solid #ccc;">${fmt(order.total)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- BANK INFO -->
+  ${bankSection}
+
+  <!-- FOOTER -->
+  <div style="background:${darkBg};padding:24px 48px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="color:white;">${socialLinks || '<span style="color:#888;font-size:12px;">Amazonia Concrete</span>'}</div>
+    <div style="border-left:3px solid #666;padding-left:18px;color:#ddd;font-size:15px;font-style:italic;font-weight:300;letter-spacing:.5px;">
+      ${settings.slogan || 'Belleza natural en concreto'}
+    </div>
+  </div>
+
+</div>
+</body></html>`
+}
+
+// ── POST /api/email/invoice ───────────────────────────────────────────────────
+router.post('/invoice', async (req, res) => {
+  const { order, customer, recipientEmail } = req.body
+
+  if (!recipientEmail) {
+    return res.status(400).json({ error: 'Se requiere el correo del destinatario' })
+  }
+
+  // Load SMTP + company settings from DB
+  let settings
+  try {
+    const { rows } = await pool.query(
+      `SELECT company_name AS "companyName", slogan, email,
+              bank_name AS "bankName", bank_key AS "bankKey",
+              bank_account_type AS "bankAccountType",
+              bank_account_number AS "bankAccountNumber",
+              bank_message AS "bankMessage",
+              tiktok, whatsapp, instagram,
+              instagram_handle AS "instagramHandle",
+              logo,
+              smtp_host AS "smtpHost", smtp_port AS "smtpPort",
+              smtp_user AS "smtpUser", smtp_pass AS "smtpPass",
+              smtp_from AS "smtpFrom"
+       FROM settings WHERE id = 1`
+    )
+    settings = rows[0]
+  } catch (e) {
+    return res.status(500).json({ error: 'Error leyendo configuración: ' + e.message })
+  }
+
+  if (!settings?.smtpHost || !settings?.smtpUser || !settings?.smtpPass) {
+    return res.status(400).json({
+      error: 'Configura el servidor SMTP en Configuración → Empresa antes de enviar correos.',
+    })
+  }
+
+  // Build HTML
+  const html = buildInvoiceHtml({ order, customer, settings })
+
+  // Send email
+  try {
+    const transporter = nodemailer.createTransport({
+      host:   settings.smtpHost,
+      port:   Number(settings.smtpPort) || 587,
+      secure: Number(settings.smtpPort) === 465,
+      auth: {
+        user: settings.smtpUser,
+        pass: settings.smtpPass,
+      },
+    })
+
+    await transporter.sendMail({
+      from:    settings.smtpFrom || settings.smtpUser,
+      to:      recipientEmail,
+      subject: `Factura ${order.orderNumber} — ${settings.companyName}`,
+      html,
+    })
+
+    const u = getUser(req)
+    await log({
+      userName: u.name, userEmail: u.email,
+      action: 'crear', entity: 'Factura',
+      entityId: order.id, entityName: `${order.orderNumber} → ${recipientEmail}`,
+      details: `Enviada a ${recipientEmail}`,
+    })
+
+    res.json({ ok: true, message: `Factura enviada a ${recipientEmail}` })
+  } catch (e) {
+    res.status(500).json({ error: 'Error al enviar el correo: ' + e.message })
+  }
+})
+
+// ── POST /api/email/test ──────────────────────────────────────────────────────
+router.post('/test', async (req, res) => {
+  const { smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, testEmail } = req.body
+  if (!smtpHost || !smtpUser || !smtpPass || !testEmail) {
+    return res.status(400).json({ error: 'Faltan parámetros SMTP' })
+  }
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: Number(smtpPort) || 587,
+      secure: Number(smtpPort) === 465,
+      auth: { user: smtpUser, pass: smtpPass },
+    })
+    await transporter.sendMail({
+      from:    smtpFrom || smtpUser,
+      to:      testEmail,
+      subject: 'Prueba de configuración SMTP — Amazonia ERP',
+      text:    '¡El servidor SMTP está configurado correctamente! Ya puedes enviar facturas por correo.',
+    })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+export default router
