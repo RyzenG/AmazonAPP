@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { UserAvatar } from '../components/layout/Topbar'
+import Pagination from '../components/Pagination'
 
 const TAB_ICONS: Record<string, any> = {
   empresa: Building, usuarios: Users, pagos: CreditCard,
@@ -65,6 +66,8 @@ export default function Settings() {
   const [auditLog, setAuditLog]         = useState<AuditEntry[]>([])
   const [auditSearch, setAuditSearch]   = useState('')
   const [auditLoading, setAuditLoading] = useState(false)
+  const [auditPage, setAuditPage]       = useState(1)
+  const AUDIT_PAGE_SIZE = 25
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
@@ -79,6 +82,16 @@ export default function Settings() {
   const [userError, setUserError]       = useState('')
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null)
   const [deleting, setDeleting]         = useState(false)
+
+  const filteredAudit = auditLog.filter((e) => {
+    const q = auditSearch.toLowerCase()
+    return !q || e.userName.toLowerCase().includes(q) ||
+      e.userEmail.toLowerCase().includes(q) ||
+      e.entity.toLowerCase().includes(q) ||
+      e.action.toLowerCase().includes(q) ||
+      (e.entityName ?? '').toLowerCase().includes(q)
+  })
+  const paginatedAudit = filteredAudit.slice((auditPage - 1) * AUDIT_PAGE_SIZE, auditPage * AUDIT_PAGE_SIZE)
 
   const loadAudit = async () => {
     setAuditLoading(true)
@@ -937,7 +950,7 @@ export default function Settings() {
               <div className="relative">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input className="input pl-8 text-sm" placeholder="Buscar por usuario, entidad o acción..."
-                  value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />
+                  value={auditSearch} onChange={(e) => { setAuditSearch(e.target.value); setAuditPage(1) }} />
               </div>
 
               {/* Table */}
@@ -951,16 +964,7 @@ export default function Settings() {
                     </tr>
                   </thead>
                   <tbody>
-                    {auditLog
-                      .filter((e) => {
-                        const q = auditSearch.toLowerCase()
-                        return !q || e.userName.toLowerCase().includes(q) ||
-                          e.userEmail.toLowerCase().includes(q) ||
-                          e.entity.toLowerCase().includes(q) ||
-                          e.action.toLowerCase().includes(q) ||
-                          (e.entityName ?? '').toLowerCase().includes(q)
-                      })
-                      .map((entry) => (
+                    {paginatedAudit.map((entry) => (
                         <tr key={entry.id} className="border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/40 transition-colors">
                           <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500 dark:text-gray-400">
                             {new Date(entry.createdAt).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' })}
@@ -992,7 +996,7 @@ export default function Settings() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-slate-400 dark:text-gray-500">Mostrando los últimos 200 registros</p>
+              <Pagination page={auditPage} total={filteredAudit.length} pageSize={AUDIT_PAGE_SIZE} onPage={setAuditPage} />
             </div>
           )}
 

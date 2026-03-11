@@ -4,15 +4,16 @@ import { log, getUser } from '../audit.js'
 
 const router = Router()
 
+const SELECT_COLS = `
+  id, code, name, company, email, phone, city, segment,
+  total_purchases::float AS "totalPurchases",
+  to_char(last_purchase, 'YYYY-MM-DD') AS "lastPurchase",
+  is_active AS "isActive",
+  notes`
+
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT id, code, name, company, email, phone, city, segment,
-              total_purchases::float AS "totalPurchases",
-              to_char(last_purchase, 'YYYY-MM-DD') AS "lastPurchase",
-              is_active AS "isActive"
-       FROM customers ORDER BY name`
-    )
+    const { rows } = await pool.query(`SELECT ${SELECT_COLS} FROM customers ORDER BY name`)
     res.json(rows)
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -21,22 +22,18 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { id, code, name, company, email, phone, city, segment,
-          totalPurchases, lastPurchase, isActive } = req.body
+          totalPurchases, lastPurchase, isActive, notes } = req.body
   try {
     const { rows } = await pool.query(
       `INSERT INTO customers
          (id, code, name, company, email, phone, city, segment,
-          total_purchases, last_purchase, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING
-         id, code, name, company, email, phone, city, segment,
-         total_purchases::float AS "totalPurchases",
-         to_char(last_purchase, 'YYYY-MM-DD') AS "lastPurchase",
-         is_active AS "isActive"`,
+          total_purchases, last_purchase, is_active, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING ${SELECT_COLS}`,
       [
         id, code ?? null, name, company ?? null, email ?? null,
         phone ?? null, city ?? null, segment ?? 'regular',
-        totalPurchases ?? 0, lastPurchase ?? null, isActive ?? true,
+        totalPurchases ?? 0, lastPurchase ?? null, isActive ?? true, notes ?? null,
       ]
     )
     const u = getUser(req)
@@ -48,17 +45,18 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { code, name, company, email, phone, city, segment, totalPurchases, lastPurchase, isActive } = req.body
+  const { code, name, company, email, phone, city, segment,
+          totalPurchases, lastPurchase, isActive, notes } = req.body
   try {
     const { rows } = await pool.query(
-      `UPDATE customers SET code=$1, name=$2, company=$3, email=$4, phone=$5, city=$6,
-              segment=$7, total_purchases=$8, last_purchase=$9, is_active=$10
-       WHERE id=$11
-       RETURNING id, code, name, company, email, phone, city, segment,
-                 total_purchases::float AS "totalPurchases",
-                 to_char(last_purchase,'YYYY-MM-DD') AS "lastPurchase",
-                 is_active AS "isActive"`,
-      [code, name, company, email, phone, city, segment, totalPurchases ?? 0, lastPurchase ?? null, isActive ?? true, req.params.id]
+      `UPDATE customers
+       SET code=$1, name=$2, company=$3, email=$4, phone=$5, city=$6,
+           segment=$7, total_purchases=$8, last_purchase=$9, is_active=$10, notes=$11
+       WHERE id=$12
+       RETURNING ${SELECT_COLS}`,
+      [code, name, company, email, phone, city, segment,
+       totalPurchases ?? 0, lastPurchase ?? null, isActive ?? true, notes ?? null,
+       req.params.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
     const u = getUser(req)

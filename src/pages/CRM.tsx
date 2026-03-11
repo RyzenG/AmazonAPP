@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send, Pencil, Trash2, Download, FileSpreadsheet } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
+import * as XLSX from 'xlsx'
 
 const SEG_BADGE: Record<string, string> = {
   vip:'badge-purple', mayorista:'badge-blue', regular:'badge-gray',
@@ -18,7 +20,7 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
     code:`CLI-${String(customers.length + 1).padStart(4, '0')}`, name:'', company:'',
     email:'', phone:'', city:'', segment:'regular', isActive:true,
-    totalPurchases:0, lastPurchase: new Date().toISOString().split('T')[0],
+    totalPurchases:0, lastPurchase: new Date().toISOString().split('T')[0], notes:'',
   })
 
   const field = (k: keyof Customer, label: string, type = 'text') => (
@@ -48,6 +50,12 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
               onChange={(e) => setForm({ ...form, segment: e.target.value })}>
               {['regular','mayorista','vip'].map((s) => <option key={s} value={s}>{SEG_LABELS[s]}</option>)}
             </select>
+          </div>
+          <div className="col-span-2">
+            <label className="label">Notas internas</label>
+            <textarea className="input resize-none" rows={3} placeholder="Observaciones, preferencias, historial relevante..."
+              value={String(form.notes ?? '')}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-5">
@@ -151,6 +159,8 @@ export default function CRM() {
   const [selected, setSelected]   = useState<Customer | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [page, setPage]                 = useState(1)
+  const PAGE_SIZE = 12
 
   // Compute totals and last purchase date from actual saleOrders
   const customerStats = useMemo(() => {
@@ -172,9 +182,29 @@ export default function CRM() {
     const matchSeg = segFilter === 'all' || c.segment === segFilter
     return matchSearch && matchSeg && c.isActive
   })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const totalRevenue = Object.values(customerStats).reduce((a, s) => a + s.total, 0)
   const vipCount     = customers.filter((c) => c.segment === 'vip').length
+
+  const handleExportExcel = () => {
+    const data = filtered.map((c) => ({
+      Código: c.code,
+      Nombre: c.name,
+      Empresa: c.company ?? '',
+      Email: c.email,
+      Teléfono: c.phone ?? '',
+      Ciudad: c.city ?? '',
+      Segmento: SEG_LABELS[c.segment],
+      'Total Compras': customerStats[c.id]?.total ?? 0,
+      'Última Compra': customerStats[c.id]?.lastDate ?? '',
+      Notas: c.notes ?? '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes')
+    XLSX.writeFile(wb, `Clientes-${new Date().toISOString().split('T')[0]}.xlsx`)
+  }
 
   return (
     <div className="space-y-6">
@@ -183,9 +213,15 @@ export default function CRM() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Clientes — CRM</h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm">Base de clientes y seguimiento</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditCustomer(undefined); setShowModal(true) }}>
-          <Plus size={16} /> Nuevo cliente
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-secondary flex items-center gap-2" onClick={handleExportExcel}
+            title="Exportar a Excel">
+            <FileSpreadsheet size={15} /> Exportar
+          </button>
+          <button className="btn btn-primary" onClick={() => { setEditCustomer(undefined); setShowModal(true) }}>
+            <Plus size={16} /> Nuevo cliente
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -213,11 +249,11 @@ export default function CRM() {
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="input pl-9" placeholder="Buscar cliente..." value={search}
-            onChange={(e) => setSearch(e.target.value)} />
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
         </div>
         <div className="flex gap-2">
           {[['all','Todos'],['regular','Regular'],['mayorista','Mayorista'],['vip','VIP']].map(([v,l]) => (
-            <button key={v} onClick={() => setSeg(v)}
+            <button key={v} onClick={() => { setSeg(v); setPage(1) }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 segFilter === v
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -229,7 +265,7 @@ export default function CRM() {
 
       {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((c) => (
+        {paginated.map((c) => (
           <CustomerCard key={c.id} customer={c}
             totalPurchases={customerStats[c.id]?.total ?? 0}
             canEdit={canEdit('customers')} canDelete={canDelete('customers')}
@@ -245,6 +281,7 @@ export default function CRM() {
           </div>
         )}
       </div>
+      <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
 
       {/* Customer Detail Drawer */}
       {selected && (
@@ -350,6 +387,14 @@ export default function CRM() {
                   </p>
                 </div>
               </div>
+
+              {/* Notes */}
+              {selected.notes && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
+                  <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Notas internas</h4>
+                  <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-line">{selected.notes}</p>
+                </div>
+              )}
 
               {/* Purchase history */}
               <div>

@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 
 const STATUS_BADGE: Record<string, string> = {
@@ -599,6 +600,11 @@ export default function Sales() {
   const [deleteTarget, setDeleteTarget] = useState<SaleOrder | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [duplicated, setDuplicated]     = useState<string | null>(null)
+  const [dateFrom, setDateFrom]         = useState('')
+  const [dateTo, setDateTo]             = useState('')
+  const [payFilter, setPayFilter]       = useState('all')
+  const [page, setPage]                 = useState(1)
+  const PAGE_SIZE = 20
 
   const handleDuplicate = (o: SaleOrder) => {
     const newOrder: SaleOrder = {
@@ -617,9 +623,16 @@ export default function Sales() {
   const filtered = saleOrders.filter((o) => {
     const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
                         (o.customer ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchStatus = statusFilter === 'all' || o.status === statusFilter || o.paymentStatus === statusFilter
-    return matchSearch && matchStatus
+    const matchStatus = statusFilter === 'all' || o.status === statusFilter
+    const matchPay    = payFilter === 'all' || o.paymentStatus === payFilter
+    const matchFrom   = !dateFrom || o.date >= dateFrom
+    const matchTo     = !dateTo   || o.date <= dateTo
+    return matchSearch && matchStatus && matchPay && matchFrom && matchTo
   })
+
+  const hasActiveFilters = dateFrom || dateTo || payFilter !== 'all' || statusFilter !== 'all'
+  const clearFilters = () => { setDateFrom(''); setDateTo(''); setPayFilter('all'); setStatus('all'); setSearch(''); setPage(1) }
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const totalRevenue = saleOrders.reduce((a,o) => a + o.total, 0)
   const pendingPay   = saleOrders.filter((o) => o.paymentStatus === 'pending').reduce((a,o) => a + o.total, 0)
@@ -657,21 +670,53 @@ export default function Sales() {
       </div>
 
       {/* Filters */}
-      <div className="card p-4 flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="input pl-9" placeholder="Buscar orden o cliente..." value={search}
-            onChange={(e) => setSearch(e.target.value)} />
+      <div className="card p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input className="input pl-9" placeholder="Buscar orden o cliente..." value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
+          </div>
+          {/* Date range */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-500 dark:text-gray-400 whitespace-nowrap">Desde</label>
+            <input type="date" className="input text-xs py-1.5 w-36" value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)} />
+            <label className="text-xs text-slate-500 dark:text-gray-400 whitespace-nowrap">Hasta</label>
+            <input type="date" className="input text-xs py-1.5 w-36" value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          {hasActiveFilters && (
+            <button onClick={clearFilters}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-gray-600 text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap">
+              <X size={12} className="inline mr-1" />Limpiar
+            </button>
+          )}
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-xs text-slate-400 dark:text-gray-500 mr-1">Estado:</span>
           {[['all','Todas'],['pending','Pendiente'],['confirmed','Confirmado'],['processing','En proceso'],['delivered','Entregado']].map(([v,l]) => (
             <button key={v} onClick={() => setStatus(v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
                 statusFilter === v
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
               }`}>{l}</button>
           ))}
+          <span className="text-xs text-slate-400 dark:text-gray-500 ml-3 mr-1">Pago:</span>
+          {[['all','Todos'],['pending','Pendiente'],['paid','Pagado'],['partial','Parcial']].map(([v,l]) => (
+            <button key={v} onClick={() => setPayFilter(v)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                payFilter === v
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
+              }`}>{l}</button>
+          ))}
+          {filtered.length !== saleOrders.length && (
+            <span className="ml-auto text-xs text-slate-400 dark:text-gray-500">
+              {filtered.length} de {saleOrders.length} órdenes
+            </span>
+          )}
         </div>
       </div>
 
@@ -686,7 +731,7 @@ export default function Sales() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((o) => (
+            {paginated.map((o) => (
               <tr key={o.id} className="table-row cursor-pointer" onClick={() => setDetail(o)}>
                 <td className="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
                 <td className="px-4 py-3 font-medium text-slate-800 dark:text-gray-200">{o.customer}</td>
@@ -725,6 +770,9 @@ export default function Sales() {
             <p>No se encontraron ventas</p>
           </div>
         )}
+        <div className="px-4 pb-2">
+          <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
+        </div>
       </div>
 
       {/* Duplicate success toast */}

@@ -32,6 +32,7 @@ export interface Customer {
   id: string; code: string; name: string; company?: string
   email: string; phone: string; city: string; segment: string
   totalPurchases: number; lastPurchase: string; isActive: boolean
+  notes?: string
 }
 
 export interface SaleOrder {

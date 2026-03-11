@@ -4,10 +4,13 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Package, Factory,
-  AlertTriangle, ShoppingCart, DollarSign, Users, Clock,
+  AlertTriangle, ShoppingCart, DollarSign, Users, Clock, RefreshCw,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { formatCOP } from '../utils/currency'
+import { useEffect, useState } from 'react'
+
+const AUTO_REFRESH_MIN = 5
 
 const PIE_COLORS = ['#2563eb', '#0f766e', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2', '#65a30d']
 
@@ -54,7 +57,22 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
-  const { supplies, saleOrders, productionOrders, products, darkMode } = useStore()
+  const { supplies, saleOrders, productionOrders, products, darkMode, loadAllData } = useStore()
+  const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [refreshing, setRefreshing]   = useState(false)
+
+  const refresh = async () => {
+    setRefreshing(true)
+    await loadAllData()
+    setLastRefresh(new Date())
+    setRefreshing(false)
+  }
+
+  // Auto-refresh every AUTO_REFRESH_MIN minutes
+  useEffect(() => {
+    const id = setInterval(refresh, AUTO_REFRESH_MIN * 60 * 1000)
+    return () => clearInterval(id)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lowStock    = supplies.filter((s) => s.stock < s.minStock)
   const pendingOrds = saleOrders.filter((o) => o.status === 'pending' || o.status === 'processing')
@@ -136,12 +154,25 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Panel de Control</h1>
-        <p className="text-slate-500 dark:text-gray-400 text-sm mt-0.5">
-          Resumen general del negocio —{' '}
-          {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Panel de Control</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm mt-0.5">
+            Resumen general del negocio —{' '}
+            {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-400 dark:text-gray-500">
+            Actualizado: {lastRefresh.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' })}
+            <span className="ml-1 opacity-60">(auto cada {AUTO_REFRESH_MIN} min)</span>
+          </span>
+          <button onClick={refresh} disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-lg text-xs font-medium text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50">
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Actualizando...' : 'Actualizar'}
+          </button>
+        </div>
       </div>
 
       {/* Low stock alert */}

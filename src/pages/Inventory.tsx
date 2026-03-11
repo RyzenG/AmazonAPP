@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 
 const UNITS = ['u','kg','g','lb','oz','L','mL','m','cm','mm','m²','m³','rollo','par','caja','doc','bolsa']
@@ -149,6 +150,8 @@ export default function Inventory() {
   const [showModal, setShowModal]     = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Supply | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [page, setPage]                 = useState(1)
+  const PAGE_SIZE = 20
 
   const categories = ['Todos', ...Array.from(new Set(supplies.map((s) => s.category)))]
   const filtered   = supplies.filter((s) => {
@@ -157,6 +160,7 @@ export default function Inventory() {
     const matchCat    = catFilter === 'Todos' || s.category === catFilter
     return matchSearch && matchCat
   })
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const lowStock  = supplies.filter((s) => s.stock < s.minStock).length
   const totalVal  = supplies.reduce((a, s) => a + s.stock * s.cost, 0)
@@ -198,11 +202,11 @@ export default function Inventory() {
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="input pl-9" placeholder="Buscar insumo..." value={search}
-            onChange={(e) => setSearch(e.target.value)} />
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
         </div>
         <div className="flex gap-2 flex-wrap">
           {categories.map((c) => (
-            <button key={c} onClick={() => setCatFilter(c)}
+            <button key={c} onClick={() => { setCatFilter(c); setPage(1) }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 catFilter === c
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -223,7 +227,7 @@ export default function Inventory() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => {
+            {paginated.map((s) => {
               const status = s.stock < s.minStock ? 'bajo' : s.stock < s.minStock * 1.5 ? 'alerta' : 'ok'
               return (
                 <tr key={s.id} className="table-row">
@@ -276,6 +280,9 @@ export default function Inventory() {
             <p>No se encontraron insumos</p>
           </div>
         )}
+        <div className="px-4 pb-2">
+          <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
+        </div>
       </div>
 
       {movSupply && <MovementModal supply={movSupply} onClose={() => setMovSupply(null)} />}
