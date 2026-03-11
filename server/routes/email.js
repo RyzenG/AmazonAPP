@@ -4,6 +4,29 @@ import { log, getUser } from '../audit.js'
 
 const router = Router()
 
+// Free email providers that cannot be used as senders in Resend without verification
+const FREE_EMAIL_DOMAINS = ['gmail.com','hotmail.com','outlook.com','yahoo.com','icloud.com','live.com']
+
+/**
+ * Build a safe "From" address for Resend.
+ * - If customFrom contains a verified custom domain → use it as-is
+ * - Otherwise fall back to "DisplayName <onboarding@resend.dev>"
+ */
+function buildFromAddress(displayName, customFrom) {
+  if (customFrom) {
+    // Extract domain from "Name <email>" or plain "email"
+    const match = customFrom.match(/<([^>]+)>/) || customFrom.match(/(\S+@\S+)/)
+    const email  = match ? match[1] : null
+    const domain = email ? email.split('@')[1]?.toLowerCase() : null
+    if (domain && !FREE_EMAIL_DOMAINS.includes(domain)) {
+      // Custom (potentially verified) domain — use as provided
+      return customFrom
+    }
+  }
+  // Safe fallback: display name + Resend's shared domain (no verification needed)
+  return `${displayName} <onboarding@resend.dev>`
+}
+
 // ── Build HTML invoice ────────────────────────────────────────────────────────
 function buildInvoiceHtml({ order, customer, settings }) {
   const fmt = (n) =>
@@ -162,7 +185,10 @@ router.post('/invoice', async (req, res) => {
 
   const html = buildInvoiceHtml({ order, customer, settings })
 
-  const fromAddress = settings.smtpFrom || 'Amazonia Concrete <onboarding@resend.dev>'
+  // Always use onboarding@resend.dev as the sending address (no domain verification needed).
+  // Only allow a custom domain if the user explicitly configured one (not gmail/hotmail/yahoo/etc.)
+  const displayName = settings.companyName || 'Amazonia Concrete'
+  const fromAddress = buildFromAddress(displayName, settings.smtpFrom)
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -206,7 +232,7 @@ router.post('/test', async (req, res) => {
     return res.status(400).json({ error: 'Se requiere el API Key de Resend y el correo de prueba' })
   }
   try {
-    const fromAddress = smtpFrom || 'Amazonia Concrete <onboarding@resend.dev>'
+    const fromAddress = buildFromAddress('Amazonia ERP', smtpFrom)
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {

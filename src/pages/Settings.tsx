@@ -464,12 +464,17 @@ export default function Settings() {
                 <h3 className="text-sm font-semibold text-slate-600 dark:text-gray-300 mb-1 flex items-center gap-2">
                   📧 Correo electrónico — envío de facturas (Resend)
                 </h3>
-                <p className="text-xs text-slate-400 dark:text-gray-500 mb-4">
+                <p className="text-xs text-slate-400 dark:text-gray-500 mb-3">
                   Usa <strong>Resend</strong> para enviar facturas por correo. Crea una cuenta gratis en{' '}
                   <a href="https://resend.com" target="_blank" rel="noreferrer" className="underline text-blue-500">resend.com</a>,
                   ve a <em>API Keys</em> y copia tu clave aquí.
-                  El remitente por defecto es <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">onboarding@resend.dev</code> (sin verificar dominio).
                 </p>
+                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+                  ⚠️ <strong>Importante:</strong> No puedes usar correos de Gmail, Hotmail o Yahoo como remitente —
+                  el correo saldrá automáticamente desde <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">onboarding@resend.dev</code>.
+                  Si quieres usar tu propio dominio (ej: <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">facturas@tuempresa.com</code>),
+                  primero verifícalo en <a href="https://resend.com/domains" target="_blank" rel="noreferrer" className="underline">resend.com/domains</a>.
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <label className="label">API Key de Resend</label>
@@ -477,12 +482,11 @@ export default function Settings() {
                       onChange={(e) => setCompany({ ...company, resendApiKey: e.target.value })} />
                   </div>
                   <div className="col-span-2">
-                    <label className="label">Dirección del remitente (opcional)</label>
+                    <label className="label">Remitente personalizado <span className="font-normal text-slate-400">(solo si tienes dominio verificado en Resend)</span></label>
                     <input className="input" placeholder="Amazonia Concrete &lt;facturas@tudominio.com&gt;" value={company.smtpFrom}
                       onChange={(e) => setCompany({ ...company, smtpFrom: e.target.value })} />
                     <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-                      Si dejas vacío se usa <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">onboarding@resend.dev</code>.
-                      Para usar tu propio dominio debes verificarlo en Resend.
+                      Si dejas vacío o usas Gmail/Hotmail, se enviará desde <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">{company.name || 'Tu empresa'} &lt;onboarding@resend.dev&gt;</code> automáticamente.
                     </p>
                   </div>
                 </div>
