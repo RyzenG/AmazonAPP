@@ -12,9 +12,9 @@ const CAT_COLORS: Record<string, string> = {
 }
 
 function ProductModal({ product, onClose }: { product?: Product; onClose: () => void }) {
-  const { addProduct, updateProduct, recipes } = useStore()
+  const { addProduct, updateProduct, recipes, products } = useStore()
   const [form, setForm] = useState<Partial<Product>>(product ?? {
-    sku:`PRD-${String(Date.now()).slice(-3)}`, name:'', category:'',
+    sku:`PRD-${String(products.length + 1).padStart(4, '0')}`, name:'', category:'',
     unit:'u', stock:0, price:0, cost:0, isActive:true,
   })
 

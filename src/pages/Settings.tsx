@@ -117,7 +117,7 @@ export default function Settings() {
 
   const closeUserModal = () => { setUserModal(null); setEditingUser(null) }
 
-  const getUserHeader = () => {
+  const getUserHeader = (): Record<string, string> => {
     try {
       const raw = localStorage.getItem('erp_auth')
       return raw ? { 'x-user': raw } : {}

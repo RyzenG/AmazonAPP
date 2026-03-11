@@ -14,9 +14,9 @@ const SEG_LABELS: Record<string, string> = {
 }
 
 function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
-  const { addCustomer, updateCustomer } = useStore()
+  const { addCustomer, updateCustomer, customers } = useStore()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
-    code:`CLI-${String(Date.now()).slice(-3)}`, name:'', company:'',
+    code:`CLI-${String(customers.length + 1).padStart(4, '0')}`, name:'', company:'',
     email:'', phone:'', city:'', segment:'regular', isActive:true,
     totalPurchases:0, lastPurchase: new Date().toISOString().split('T')[0],
   })

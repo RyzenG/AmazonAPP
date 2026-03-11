@@ -150,7 +150,7 @@ function buildInvoiceHtml({ order, customer, settings }) {
 
 // ── POST /api/email/invoice ───────────────────────────────────────────────────
 router.post('/invoice', async (req, res) => {
-  const { order, customer, recipientEmail } = req.body
+  const { order, customer, recipientEmail, pdfBase64 } = req.body
 
   if (!recipientEmail) {
     return res.status(400).json({ error: 'Se requiere el correo del destinatario' })
@@ -202,13 +202,26 @@ router.post('/invoice', async (req, res) => {
         to: [recipientEmail],
         subject: `Factura ${order.orderNumber} — ${settings.companyName}`,
         html,
+        ...(pdfBase64 ? {
+          attachments: [{
+            filename: `Factura-${order.orderNumber}.pdf`,
+            content: pdfBase64,
+          }],
+        } : {}),
       }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      return res.status(500).json({ error: `Error Resend: ${data.message || JSON.stringify(data)}` })
+      const msg = data.message || JSON.stringify(data)
+      if (msg.includes('testing emails') || msg.includes('verify a domain') || msg.includes('own email address')) {
+        return res.status(500).json({
+          error: 'Tu cuenta Resend está en modo de pruebas: solo puedes enviarte correos a ti mismo. '
+               + 'Para enviar a cualquier cliente debes verificar tu dominio en resend.com/domains.',
+        })
+      }
+      return res.status(500).json({ error: `Error Resend: ${msg}` })
     }
 
     const u = getUser(req)

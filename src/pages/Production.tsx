@@ -111,7 +111,7 @@ function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onD
 }
 
 function NewOrderModal({ onClose }: { onClose: () => void }) {
-  const { recipes, addProductionOrder } = useStore()
+  const { recipes, addProductionOrder, productionOrders } = useStore()
   const [recipeId, setRecipeId] = useState('')
   const [qty, setQty]           = useState('')
   const [date, setDate]         = useState(new Date().toISOString().split('T')[0])
@@ -123,7 +123,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
     if (!recipe || !qty) return
     const n = parseFloat(qty)
     const order: ProductionOrder = {
-      id: `po${Date.now()}`, orderNumber: `OP-2024-${String(Date.now()).slice(-3)}`,
+      id: `po${Date.now()}`, orderNumber: `OP-${new Date().getFullYear()}-${String(productionOrders.length + 1).padStart(4, '0')}`,
       recipe: recipe.name, product: recipe.name.split('(')[0].trim(),
       plannedQty: n, status: 'pending', priority: 3,
       plannedStart: `${date} 08:00`, plannedEnd: `${date} 16:00`,

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
 import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
@@ -22,7 +24,7 @@ const PAY_LABELS: Record<string, string> = {
 }
 
 function NewSaleModal({ onClose }: { onClose: () => void }) {
-  const { customers, products, addSaleOrder } = useStore()
+  const { customers, products, addSaleOrder, saleOrders } = useStore()
   const [customerId, setCustomerId] = useState('')
   const [payMethod, setPayMethod]   = useState('Efectivo')
   const [items, setItems]           = useState<{productId:string;product:string;qty:number;price:number}[]>([])
@@ -50,7 +52,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
     const customer = customers.find((c) => c.id === customerId)
     if (!customer || items.length === 0) return
     const order: SaleOrder = {
-      id: `so${Date.now()}`, orderNumber: `VTA-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
+      id: `so${Date.now()}`, orderNumber: `VTA-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
       customer: customer.name, customerId,
       items: items.map((x) => ({ product:x.product, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
       subtotal: Math.round(subtotal),
@@ -228,14 +230,50 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
   const [emailSending, setEmailSending] = useState(false)
   const [emailResult, setEmailResult] = useState<{ ok: boolean; text: string } | null>(null)
 
+  const generatePdfBase64 = async (): Promise<string | null> => {
+    const el = document.getElementById('invoice-print-content')
+    if (!el) return null
+    try {
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const ratio = canvas.height / canvas.width
+      const imgH = pageW * ratio
+      if (imgH <= pageH) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH)
+      } else {
+        // Multi-page support
+        let y = 0
+        while (y < canvas.height) {
+          const sliceH = Math.min(canvas.height - y, Math.floor(canvas.width * pageH / pageW))
+          const sliceCanvas = document.createElement('canvas')
+          sliceCanvas.width = canvas.width
+          sliceCanvas.height = sliceH
+          sliceCanvas.getContext('2d')!.drawImage(canvas, 0, -y)
+          if (y > 0) pdf.addPage()
+          pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH)
+          y += sliceH
+        }
+      }
+      // Return base64 without the data:application/pdf;base64, prefix
+      return pdf.output('datauristring').split(',')[1]
+    } catch {
+      return null
+    }
+  }
+
   const handleSendEmail = async () => {
     if (!emailTo.trim()) return
     setEmailSending(true)
     setEmailResult(null)
     try {
+      const pdfBase64 = await generatePdfBase64()
+      const userHeader: Record<string, string> = (() => { try { const r = localStorage.getItem('erp_auth'); return r ? ({ 'x-user': r } as Record<string, string>) : {} } catch { return {} } })()
       const res = await fetch('/api/email/invoice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...((() => { try { const r = localStorage.getItem('erp_auth'); return r ? { 'x-user': r } : {} } catch { return {} } })()) },
+        headers: { 'Content-Type': 'application/json', ...userHeader },
         body: JSON.stringify({
           order: { ...order, items: order.items },
           customer: {
@@ -245,6 +283,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
             city:  customer?.city  ?? '',
           },
           recipientEmail: emailTo.trim(),
+          pdfBase64,
         }),
       })
       const data = await res.json()
@@ -357,7 +396,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
                       <button onClick={handleSendEmail} disabled={emailSending || !emailTo.trim()}
                         className="btn btn-primary disabled:opacity-60 flex items-center gap-2">
                         {emailSending
-                          ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enviando...</>
+                          ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generando PDF y enviando...</>
                           : <><Send size={14} /> Enviar factura</>}
                       </button>
                     )}
