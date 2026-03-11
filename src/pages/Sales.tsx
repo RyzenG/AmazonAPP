@@ -167,28 +167,74 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
 
 function OrderDetail({ order, onClose, onInvoice }: { order: SaleOrder; onClose: () => void; onInvoice: () => void }) {
   const { updateSaleOrder } = useStore()
+  const [localOrder, setLocalOrder] = useState(order)
+
+  const update = (patch: Partial<SaleOrder>) => {
+    const updated = { ...localOrder, ...patch }
+    setLocalOrder(updated)
+    updateSaleOrder(updated)
+  }
+
+  const ORDER_FLOW: SaleOrder['status'][] = ['pending','confirmed','processing','delivered']
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fadeIn">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
           <div>
-            <h3 className="font-semibold text-slate-800 dark:text-white">{order.orderNumber}</h3>
-            <p className="text-xs text-slate-500 dark:text-gray-400">{order.customer}</p>
+            <h3 className="font-semibold text-slate-800 dark:text-white">{localOrder.orderNumber}</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400">{localOrder.customer}</p>
           </div>
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Estado orden</p>
-              <span className={`badge ${STATUS_BADGE[order.status] ?? 'badge-yellow'}`}>{STATUS_LABELS[order.status] ?? order.status}</span></div>
-            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Estado pago</p>
-              <span className={`badge ${PAY_BADGE[order.paymentStatus] ?? 'badge-yellow'}`}>{PAY_LABELS[order.paymentStatus] ?? order.paymentStatus}</span></div>
-            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Método pago</p><p className="font-medium dark:text-gray-200">{order.paymentMethod}</p></div>
-            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Fecha</p><p className="font-medium dark:text-gray-200">{order.date}</p></div>
+
+          {/* Order status flow */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-2">Estado de la orden</p>
+            <div className="flex gap-1.5 flex-wrap">
+              {ORDER_FLOW.map((s) => (
+                <button key={s}
+                  onClick={() => update({ status: s })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    localOrder.status === s
+                      ? `${STATUS_BADGE[s] === 'badge-green' ? 'bg-emerald-600' : STATUS_BADGE[s] === 'badge-blue' ? 'bg-blue-600' : 'bg-amber-500'} text-white border-transparent`
+                      : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
+                  }`}>
+                  {STATUS_LABELS[s]}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Payment status */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-2">Estado de pago</p>
+            <div className="flex gap-1.5">
+              {(['pending','partial','paid'] as const).map((ps) => (
+                <button key={ps}
+                  onClick={() => update({ paymentStatus: ps })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    localOrder.paymentStatus === ps
+                      ? ps === 'paid' ? 'bg-emerald-600 text-white border-transparent'
+                        : ps === 'partial' ? 'bg-amber-500 text-white border-transparent'
+                        : 'bg-slate-600 text-white border-transparent'
+                      : 'bg-white dark:bg-gray-700 text-slate-600 dark:text-gray-300 border-slate-200 dark:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-600'
+                  }`}>
+                  {PAY_LABELS[ps]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm border-t border-slate-100 dark:border-gray-700 pt-3">
+            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Método pago</p><p className="font-medium dark:text-gray-200">{localOrder.paymentMethod}</p></div>
+            <div><p className="text-slate-400 dark:text-gray-500 text-xs">Fecha</p><p className="font-medium dark:text-gray-200">{localOrder.date}</p></div>
+          </div>
+
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mb-2">PRODUCTOS</p>
-            {order.items.map((item, i) => (
+            {localOrder.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm py-2 border-b border-slate-50 dark:border-gray-700">
                 <span className="text-slate-700 dark:text-gray-300">{item.product}</span>
                 <span className="text-slate-500 dark:text-gray-400">{item.qty} × {formatCOP(item.price)}</span>
@@ -197,23 +243,15 @@ function OrderDetail({ order, onClose, onInvoice }: { order: SaleOrder; onClose:
             ))}
           </div>
           <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-3 space-y-1.5 text-sm">
-            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>Subtotal</span><span>{formatCOP(order.subtotal)}</span></div>
-            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>IVA</span><span>{formatCOP(order.tax)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>Subtotal</span><span>{formatCOP(localOrder.subtotal)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-gray-400"><span>IVA</span><span>{formatCOP(localOrder.tax)}</span></div>
             <div className="flex justify-between font-bold text-slate-800 dark:text-white pt-1.5 border-t border-slate-200 dark:border-gray-600">
-              <span>Total</span><span>{formatCOP(order.total)}</span>
+              <span>Total</span><span>{formatCOP(localOrder.total)}</span>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button className="btn btn-secondary flex-1 flex items-center justify-center gap-2" onClick={onInvoice}>
-              <FileText size={15} /> Ver Factura
-            </button>
-            {order.paymentStatus !== 'paid' && (
-              <button className="btn btn-success flex-1"
-                onClick={() => { updateSaleOrder({ ...order, paymentStatus:'paid' }); onClose() }}>
-                <CheckCircle size={16} /> Marcar como pagado
-              </button>
-            )}
-          </div>
+          <button className="btn btn-secondary w-full flex items-center justify-center gap-2" onClick={onInvoice}>
+            <FileText size={15} /> Ver Factura
+          </button>
         </div>
       </div>
     </div>
@@ -590,7 +628,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 }
 
 export default function Sales() {
-  const { saleOrders, deleteSaleOrder, addSaleOrder, companySettings } = useStore()
+  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, companySettings } = useStore()
   const { canDelete } = usePermissions()
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState('all')
@@ -742,8 +780,14 @@ export default function Sales() {
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.paymentMethod}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.date}</td>
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button className="btn btn-sm btn-secondary" onClick={() => setDetail(o)}>Ver</button>
+                    {o.paymentStatus !== 'paid' && (
+                      <button className="btn btn-sm flex items-center gap-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
+                        onClick={() => updateSaleOrder({ ...o, paymentStatus: 'paid' })} title="Marcar como pagado">
+                        <CheckCircle size={12} />
+                      </button>
+                    )}
                     <button className="btn btn-sm flex items-center gap-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
                       onClick={() => setInvoice(o)} title="Ver factura">
                       <FileText size={12} />

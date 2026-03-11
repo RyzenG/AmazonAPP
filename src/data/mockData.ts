@@ -22,7 +22,7 @@ export interface Recipe {
 }
 
 export interface ProductionOrder {
-  id: string; orderNumber: string; recipe: string; product: string
+  id: string; orderNumber: string; recipe: string; product: string; recipeId?: string
   plannedQty: number; actualQty?: number; status: 'pending' | 'in_progress' | 'finished' | 'cancelled'
   priority: 1|2|3|4|5; plannedStart: string; plannedEnd: string
   estimatedCost: number; actualCost?: number; assignedTo: string

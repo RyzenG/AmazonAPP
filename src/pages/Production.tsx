@@ -111,7 +111,7 @@ function OrderCard({ order, onDelete, canDelete }: { order: ProductionOrder; onD
 }
 
 function NewOrderModal({ onClose }: { onClose: () => void }) {
-  const { recipes, addProductionOrder, productionOrders } = useStore()
+  const { recipes, addProductionOrder, productionOrders, supplies } = useStore()
   const [recipeId, setRecipeId] = useState('')
   const [qty, setQty]           = useState('')
   const [date, setDate]         = useState(new Date().toISOString().split('T')[0])
@@ -119,12 +119,30 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
 
   const recipe = recipes.find((r) => r.id === recipeId)
 
+  // Check if there is sufficient inventory for this order
+  const stockCheck = (() => {
+    if (!recipe || !qty) return null
+    const n = parseFloat(qty) || 0
+    if (n <= 0) return null
+    const batches = n / recipe.yieldQty
+    const shortfalls: { name: string; need: number; have: number; unit: string }[] = []
+    for (const ing of recipe.ingredients) {
+      const supply = supplies.find((s) => s.id === ing.supplyId)
+      if (!supply) continue
+      const needed = parseFloat((ing.qty * batches).toFixed(4))
+      if (supply.stock < needed) {
+        shortfalls.push({ name: supply.name, need: needed, have: supply.stock, unit: supply.unit })
+      }
+    }
+    return shortfalls
+  })()
+
   const handleSave = () => {
     if (!recipe || !qty) return
     const n = parseFloat(qty)
     const order: ProductionOrder = {
       id: `po${Date.now()}`, orderNumber: `OP-${new Date().getFullYear()}-${String(productionOrders.length + 1).padStart(4, '0')}`,
-      recipe: recipe.name, product: recipe.name.split('(')[0].trim(),
+      recipe: recipe.name, recipeId: recipe.id, product: recipe.name.split('(')[0].trim(),
       plannedQty: n, status: 'pending', priority: 3,
       plannedStart: `${date} 08:00`, plannedEnd: `${date} 16:00`,
       estimatedCost: parseFloat((recipe.costPerUnit * n).toFixed(2)),
@@ -176,6 +194,21 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
               <p className="text-emerald-700 dark:text-emerald-300 font-semibold">
                 Costo estimado total: {formatCOP(recipe.costPerUnit * parseFloat(qty || '0'))}
               </p>
+            </div>
+          )}
+          {stockCheck && stockCheck.length > 0 && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-xs animate-fadeIn">
+              <p className="text-red-700 dark:text-red-400 font-semibold mb-1">⚠️ Stock insuficiente para completar esta orden:</p>
+              {stockCheck.map((s) => (
+                <p key={s.name} className="text-red-600 dark:text-red-400">
+                  {s.name}: necesita {s.need.toFixed(2)} {s.unit}, disponible {s.have.toFixed(2)} {s.unit}
+                </p>
+              ))}
+            </div>
+          )}
+          {stockCheck && stockCheck.length === 0 && qty && recipe && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs animate-fadeIn">
+              <p className="text-blue-700 dark:text-blue-300 font-semibold">✓ Stock suficiente para esta orden. Los insumos se descontarán al finalizar.</p>
             </div>
           )}
         </div>

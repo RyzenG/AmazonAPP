@@ -310,9 +310,35 @@ export const useStore = create<AppState>((set, get) => ({
     await apiFetch(`/api/production-orders/${id}/status`, {
       method: 'PUT', body: JSON.stringify({ status }),
     })
-    set((s) => ({
-      productionOrders: s.productionOrders.map((o) => o.id === id ? { ...o, status } : o),
-    }))
+    set((s) => {
+      const updatedOrders = s.productionOrders.map((o) => o.id === id ? { ...o, status } : o)
+
+      // When finishing a production order, auto-deduct supplies from inventory
+      if (status === 'finished') {
+        const order = s.productionOrders.find((o) => o.id === id)
+        if (order?.recipeId) {
+          const recipe = s.recipes.find((r) => r.id === order.recipeId)
+          if (recipe) {
+            const batchesNeeded = order.plannedQty / recipe.yieldQty
+            const updatedSupplies = s.supplies.map((supply) => {
+              const ingredient = recipe.ingredients.find((ing) => ing.supplyId === supply.id)
+              if (!ingredient) return supply
+              const consumed = parseFloat((ingredient.qty * batchesNeeded).toFixed(4))
+              return { ...supply, stock: Math.max(0, parseFloat((supply.stock - consumed).toFixed(4))) }
+            })
+            // Persist each changed supply
+            updatedSupplies.forEach((sup, i) => {
+              if (sup.stock !== s.supplies[i]?.stock) {
+                apiFetch(`/api/supplies/${sup.id}`, { method: 'PUT', body: JSON.stringify(sup) })
+              }
+            })
+            return { productionOrders: updatedOrders, supplies: updatedSupplies }
+          }
+        }
+      }
+
+      return { productionOrders: updatedOrders }
+    })
   },
 
   addSupply: async (supply) => {

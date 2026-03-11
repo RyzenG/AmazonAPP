@@ -187,12 +187,17 @@ export default function Dashboard() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard icon={DollarSign}   label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
-        <KPICard icon={Factory}      label="En producción"         value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
-        <KPICard icon={Package}      label="Alertas de inventario" value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
-        <KPICard icon={ShoppingCart} label="Pedidos activos"       value={`${pendingOrds.length}`} sub="Requieren atención" color="bg-violet-600" />
-      </div>
+      {(() => {
+        const pendingPayTotal = saleOrders.filter(o => o.paymentStatus === 'pending' || o.paymentStatus === 'partial').reduce((a,o)=>a+o.total,0)
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <KPICard icon={DollarSign}   label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
+            <KPICard icon={Clock}        label="Por cobrar"             value={formatCOP(pendingPayTotal)} sub="Pagos pendientes" trend={pendingPayTotal>0?'down':undefined} color="bg-rose-500" />
+            <KPICard icon={Package}      label="Alertas de inventario"  value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
+            <KPICard icon={Factory}      label="En producción"          value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
+          </div>
+        )
+      })()}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -302,6 +307,68 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Accounts receivable aging */}
+      {(() => {
+        const today = new Date()
+        const unpaid = saleOrders.filter((o) => o.paymentStatus === 'pending' || o.paymentStatus === 'partial')
+        if (unpaid.length === 0) return null
+        const buckets = [
+          { label: '0–7 días',   cls: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400', orders: [] as typeof saleOrders },
+          { label: '8–30 días',  cls: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400', orders: [] as typeof saleOrders },
+          { label: '+30 días',   cls: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400', orders: [] as typeof saleOrders },
+        ]
+        for (const o of unpaid) {
+          const diffDays = Math.floor((today.getTime() - new Date(o.date + 'T12:00:00').getTime()) / 86400000)
+          if (diffDays <= 7) buckets[0].orders.push(o)
+          else if (diffDays <= 30) buckets[1].orders.push(o)
+          else buckets[2].orders.push(o)
+        }
+        return (
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-slate-800 dark:text-white">Cuentas por cobrar</h2>
+                <p className="text-xs text-slate-500 dark:text-gray-400">{unpaid.length} órdenes sin pagar — {formatCOP(unpaid.reduce((a,o)=>a+o.total,0))} total</p>
+              </div>
+              <a href="/sales" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver ventas →</a>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {buckets.map((b) => (
+                <div key={b.label} className={`rounded-xl border p-4 ${b.cls}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-70">{b.label}</p>
+                  <p className="text-2xl font-bold">{b.orders.length}</p>
+                  <p className="text-sm font-medium mt-0.5">{formatCOP(b.orders.reduce((a,o)=>a+o.total,0))}</p>
+                </div>
+              ))}
+            </div>
+            {buckets[2].orders.length > 0 && (
+              <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
+                <div className="bg-red-50 dark:bg-red-900/20 px-4 py-2">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-400">⚠️ Vencidas (+30 días) — Requieren atención inmediata</p>
+                </div>
+                <div className="divide-y divide-red-100 dark:divide-red-900/30">
+                  {buckets[2].orders.slice(0, 5).map((o) => {
+                    const days = Math.floor((today.getTime() - new Date(o.date + 'T12:00:00').getTime()) / 86400000)
+                    return (
+                      <div key={o.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <div>
+                          <p className="font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</p>
+                          <p className="font-medium text-slate-700 dark:text-gray-200">{o.customer}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
+                          <p className="text-xs text-red-600 dark:text-red-400">{days} días</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Production status */}
       <div className="card p-5">
