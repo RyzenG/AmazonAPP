@@ -4,12 +4,15 @@ import { log, getUser } from '../audit.js'
 
 const router = Router()
 
+const SELECT_COLS = `
+  id, sku, name, category, price::float, cost::float, stock, unit,
+  description, image,
+  recipe_id AS "recipeId",
+  is_active AS "isActive"`
+
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT id, name, category, price::float, cost::float, stock, unit, description,
-              is_active AS "isActive" FROM products ORDER BY name`
-    )
+    const { rows } = await pool.query(`SELECT ${SELECT_COLS} FROM products ORDER BY name`)
     res.json(rows)
   } catch (e) {
     res.status(500).json({ error: e.message })
@@ -17,12 +20,12 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { id, name, category, price, cost, stock, unit, description, isActive } = req.body
+  const { id, sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive } = req.body
   try {
     const { rows } = await pool.query(
-      `INSERT INTO products (id, name, category, price, cost, stock, unit, description, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [id, name, category, price, cost, stock, unit, description, isActive ?? true]
+      `INSERT INTO products (id, sku, name, category, price, cost, stock, unit, description, image, recipe_id, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [id, sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive ?? true]
     )
     const u = getUser(req)
     await log({ userName: u.name, userEmail: u.email, action: 'crear', entity: 'Producto', entityId: id, entityName: name })
@@ -33,12 +36,12 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { name, category, price, cost, stock, unit, description, isActive } = req.body
+  const { sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive } = req.body
   try {
     const { rows } = await pool.query(
-      `UPDATE products SET name=$1, category=$2, price=$3, cost=$4, stock=$5, unit=$6,
-              description=$7, is_active=$8 WHERE id=$9 RETURNING *`,
-      [name, category, price, cost, stock, unit, description, isActive, req.params.id]
+      `UPDATE products SET sku=$1, name=$2, category=$3, price=$4, cost=$5, stock=$6, unit=$7,
+              description=$8, image=$9, recipe_id=$10, is_active=$11 WHERE id=$12 RETURNING *`,
+      [sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive, req.params.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
     const u = getUser(req)

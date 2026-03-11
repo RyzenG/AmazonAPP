@@ -51,6 +51,10 @@ async function migrate() {
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS smtp_from          TEXT DEFAULT '';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS resend_api_key     TEXT DEFAULT '';
       ALTER TABLE settings ADD COLUMN IF NOT EXISTS invoice_prefix     TEXT DEFAULT 'VTA';
+      ALTER TABLE products   ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+      ALTER TABLE products   ADD COLUMN IF NOT EXISTS image TEXT DEFAULT '';
+      ALTER TABLE products   ADD COLUMN IF NOT EXISTS sku TEXT DEFAULT '';
+      ALTER TABLE products   ADD COLUMN IF NOT EXISTS recipe_id TEXT DEFAULT '';
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,

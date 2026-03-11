@@ -11,7 +11,7 @@ export interface Supply {
 export interface Product {
   id: string; sku: string; name: string; category: string
   unit: string; stock: number; price: number; cost: number
-  isActive: boolean; recipeId?: string; image?: string
+  isActive: boolean; recipeId?: string; image?: string; description?: string
 }
 
 export interface Recipe {
