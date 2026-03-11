@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { UserAvatar } from '../components/layout/Topbar'
 
 const TAB_ICONS: Record<string, any> = {
   empresa: Building, usuarios: Users, pagos: CreditCard,
@@ -213,6 +214,7 @@ export default function Settings() {
     instagramHandle:   companySettings.instagramHandle,
     smtpFrom:          companySettings.smtpFrom,
     resendApiKey:      companySettings.resendApiKey,
+    invoicePrefix:     companySettings.invoicePrefix,
   })
   const [smtpTesting, setSmtpTesting]  = useState(false)
   const [smtpTestMsg, setSmtpTestMsg]  = useState<{ ok: boolean; text: string } | null>(null)
@@ -239,6 +241,7 @@ export default function Settings() {
       instagramHandle:   companySettings.instagramHandle,
       smtpFrom:          companySettings.smtpFrom,
       resendApiKey:      companySettings.resendApiKey,
+      invoicePrefix:     companySettings.invoicePrefix,
     })
     setLogoPreview(companySettings.logo)
   }, [companySettings])
@@ -282,6 +285,7 @@ export default function Settings() {
         smtpPass:           '',
         smtpFrom:           company.smtpFrom,
         resendApiKey:       company.resendApiKey,
+        invoicePrefix:      company.invoicePrefix,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -409,6 +413,16 @@ export default function Settings() {
                       <option key={tz}>{tz}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="label">Prefijo de facturas</label>
+                  <input className="input uppercase" maxLength={6}
+                    placeholder="VTA"
+                    value={company.invoicePrefix}
+                    onChange={(e) => setCompany({ ...company, invoicePrefix: e.target.value.toUpperCase() })} />
+                  <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
+                    Prefijo del número de factura. Ej: <code className="bg-slate-100 dark:bg-gray-700 px-1 rounded">FAC</code> → FAC-2026-0001
+                  </p>
                 </div>
               </div>
 
@@ -588,9 +602,7 @@ export default function Settings() {
                       <tr key={u.id} className="border-b border-slate-100 dark:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-700/40 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs flex-shrink-0">
-                              {u.name.split(' ').map((w) => w[0]).slice(0,2).join('')}
-                            </div>
+                            <UserAvatar name={u.name} size={32} />
                             <span className="font-medium text-slate-800 dark:text-gray-200">{u.name}</span>
                           </div>
                         </td>

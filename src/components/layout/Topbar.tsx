@@ -1,8 +1,27 @@
-import { Bell, Search, AlertTriangle, Info, CheckCircle, XCircle, Sun, Moon, Check, Trash2 } from 'lucide-react'
+import { Bell, Search, AlertTriangle, Info, CheckCircle, XCircle, Sun, Moon, Check, Trash2, LogOut } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+
+function UserAvatar({ name, size = 32, className = '' }: { name: string; size?: number; className?: string }) {
+  const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase()).join('')
+  // Deterministic color from name
+  const colors = ['bg-emerald-500','bg-blue-500','bg-violet-500','bg-rose-500','bg-amber-500','bg-teal-500','bg-pink-500','bg-indigo-500']
+  const color  = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div
+      className={`${color} ${className} rounded-full flex items-center justify-center text-white font-bold select-none`}
+      style={{ width: size, height: size, fontSize: size * 0.38 }}
+      title={name}
+    >
+      {initials}
+    </div>
+  )
+}
+
+export { UserAvatar }
 
 const typeIcon = {
   warning: <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />,
@@ -12,9 +31,16 @@ const typeIcon = {
 }
 
 export default function Topbar({ title }: { title?: string }) {
-  const { notifications, markAsRead, markAllAsRead, clearNotifications, darkMode, toggleDarkMode } = useStore()
+  const { notifications, markAsRead, markAllAsRead, clearNotifications, darkMode, toggleDarkMode, user, logout } = useStore()
   const [showNotif, setShowNotif] = useState(false)
+  const [showUser, setShowUser]   = useState(false)
+  const navigate = useNavigate()
   const unread = notifications.filter((n) => !n.read).length
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 flex items-center justify-between px-6 sticky top-0 z-30">
@@ -129,6 +155,37 @@ export default function Topbar({ title }: { title?: string }) {
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
+
+        {/* User avatar + dropdown */}
+        {user && (
+          <div className="relative ml-2">
+            <button onClick={() => setShowUser(!showUser)}
+              className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors">
+              <UserAvatar name={user.name} size={32} />
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-semibold text-slate-800 dark:text-gray-200 leading-tight">{user.name.split(' ')[0]}</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500 leading-tight">{user.role}</p>
+              </div>
+            </button>
+
+            {showUser && (
+              <div className="absolute right-0 top-12 w-52 bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 shadow-xl z-50 animate-fadeIn overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-gray-700 flex items-center gap-3">
+                  <UserAvatar name={user.name} size={36} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-gray-100 truncate">{user.name}</p>
+                    <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{user.email}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-0.5">{user.role}</p>
+                  </div>
+                </div>
+                <button onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <LogOut size={15} /> Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   )

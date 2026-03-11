@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -24,7 +24,7 @@ const PAY_LABELS: Record<string, string> = {
 }
 
 function NewSaleModal({ onClose }: { onClose: () => void }) {
-  const { customers, products, addSaleOrder, saleOrders } = useStore()
+  const { customers, products, addSaleOrder, saleOrders, companySettings } = useStore()
   const [customerId, setCustomerId] = useState('')
   const [payMethod, setPayMethod]   = useState('Efectivo')
   const [items, setItems]           = useState<{productId:string;product:string;qty:number;price:number}[]>([])
@@ -52,7 +52,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
     const customer = customers.find((c) => c.id === customerId)
     if (!customer || items.length === 0) return
     const order: SaleOrder = {
-      id: `so${Date.now()}`, orderNumber: `VTA-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
+      id: `so${Date.now()}`, orderNumber: `${companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
       customer: customer.name, customerId,
       items: items.map((x) => ({ product:x.product, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
       subtotal: Math.round(subtotal),
@@ -337,16 +337,29 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
           {/* Toolbar — hidden when printing */}
           <div className="invoice-no-print flex items-center justify-between px-6 py-3 bg-slate-50 border-b border-slate-200 flex-shrink-0">
             <h3 className="font-semibold text-slate-800 text-sm">Vista previa — Factura {order.orderNumber}</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* WhatsApp button — opens wa.me with pre-filled invoice message */}
+              {(() => {
+                const phone = (customer?.phone ?? '').replace(/\D/g, '')
+                const msg = encodeURIComponent(
+                  `Hola ${customer?.name ?? order.customer}, adjunto la factura *${order.orderNumber}* por un valor de *${fmt(order.total)}*. Gracias por tu compra 🙏`
+                )
+                return phone ? (
+                  <a href={`https://wa.me/${phone}?text=${msg}`} target="_blank" rel="noreferrer"
+                    className="invoice-no-print flex items-center gap-2 px-3 py-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white text-sm font-medium rounded-lg transition-colors">
+                    <MessageCircle size={15} /> WhatsApp
+                  </a>
+                ) : null
+              })()}
               <button onClick={() => { setEmailModal(true); setEmailResult(null) }}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-                <Mail size={15} /> Enviar por correo
+                className="invoice-no-print flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Mail size={15} /> Correo
               </button>
               <button onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
-                <Printer size={15} /> Imprimir / PDF
+                className="invoice-no-print flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <Printer size={15} /> Imprimir
               </button>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+              <button onClick={onClose} className="invoice-no-print text-slate-400 hover:text-slate-600 ml-1">
                 <X size={18} />
               </button>
             </div>
@@ -576,7 +589,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 }
 
 export default function Sales() {
-  const { saleOrders, deleteSaleOrder } = useStore()
+  const { saleOrders, deleteSaleOrder, addSaleOrder, companySettings } = useStore()
   const { canDelete } = usePermissions()
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState('all')
@@ -585,6 +598,21 @@ export default function Sales() {
   const [invoice, setInvoice]       = useState<SaleOrder | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleOrder | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [duplicated, setDuplicated]     = useState<string | null>(null)
+
+  const handleDuplicate = (o: SaleOrder) => {
+    const newOrder: SaleOrder = {
+      ...o,
+      id: `so${Date.now()}`,
+      orderNumber: `${companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
+      date: new Date().toISOString().split('T')[0],
+      status: 'pending',
+      paymentStatus: 'pending',
+    }
+    addSaleOrder(newOrder)
+    setDuplicated(newOrder.orderNumber)
+    setTimeout(() => setDuplicated(null), 3000)
+  }
 
   const filtered = saleOrders.filter((o) => {
     const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
@@ -675,6 +703,10 @@ export default function Sales() {
                       onClick={() => setInvoice(o)} title="Ver factura">
                       <FileText size={12} />
                     </button>
+                    <button className="btn btn-sm flex items-center gap-1 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+                      onClick={() => handleDuplicate(o)} title="Duplicar orden">
+                      <Copy size={12} />
+                    </button>
                     {canDelete('sales') && (
                       <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
                         onClick={() => setDeleteTarget(o)}>
@@ -694,6 +726,14 @@ export default function Sales() {
           </div>
         )}
       </div>
+
+      {/* Duplicate success toast */}
+      {duplicated && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-amber-600 text-white px-4 py-3 rounded-xl shadow-2xl animate-fadeIn">
+          <Copy size={16} />
+          <span className="text-sm font-medium">Orden duplicada: <strong>{duplicated}</strong></span>
+        </div>
+      )}
 
       {showModal && <NewSaleModal onClose={() => setShowModal(false)} />}
       {detail    && <OrderDetail order={detail} onClose={() => setDetail(null)} onInvoice={() => { setInvoice(detail); setDetail(null) }} />}

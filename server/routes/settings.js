@@ -21,7 +21,8 @@ router.get('/', async (req, res) => {
               smtp_user AS "smtpUser",
               smtp_pass AS "smtpPass",
               smtp_from AS "smtpFrom",
-              resend_api_key AS "resendApiKey"
+              resend_api_key AS "resendApiKey",
+              invoice_prefix AS "invoicePrefix"
        FROM settings WHERE id = 1`
     )
     res.json(rows[0] ?? {})
@@ -35,7 +36,7 @@ router.put('/', async (req, res) => {
     companyName, slogan, email, phone, address, currency, timezone, logo,
     bankName, bankKey, bankAccountType, bankAccountNumber, bankMessage,
     tiktok, whatsapp, instagram, instagramHandle,
-    smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, resendApiKey,
+    smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, resendApiKey, invoicePrefix,
   } = req.body
   try {
     const { rows } = await pool.query(
@@ -43,9 +44,9 @@ router.put('/', async (req, res) => {
          id, company_name, slogan, email, phone, address, currency, timezone, logo,
          bank_name, bank_key, bank_account_type, bank_account_number, bank_message,
          tiktok, whatsapp, instagram, instagram_handle,
-         smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, resend_api_key
+         smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from, resend_api_key, invoice_prefix
        )
-       VALUES (1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+       VALUES (1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
        ON CONFLICT (id) DO UPDATE SET
          company_name=$1, slogan=$2, email=$3, phone=$4, address=$5,
          currency=$6, timezone=$7, logo=$8,
@@ -53,7 +54,7 @@ router.put('/', async (req, res) => {
          bank_account_number=$12, bank_message=$13,
          tiktok=$14, whatsapp=$15, instagram=$16, instagram_handle=$17,
          smtp_host=$18, smtp_port=$19, smtp_user=$20, smtp_pass=$21, smtp_from=$22,
-         resend_api_key=$23
+         resend_api_key=$23, invoice_prefix=$24
        RETURNING *`,
       [
         companyName, slogan, email, phone, address, currency, timezone, logo ?? null,
@@ -61,7 +62,7 @@ router.put('/', async (req, res) => {
         bankAccountNumber ?? '', bankMessage ?? '',
         tiktok ?? '', whatsapp ?? '', instagram ?? '', instagramHandle ?? '',
         smtpHost ?? '', smtpPort ?? 587, smtpUser ?? '', smtpPass ?? '', smtpFrom ?? '',
-        resendApiKey ?? '',
+        resendApiKey ?? '', invoicePrefix ?? 'VTA',
       ]
     )
     const u = getUser(req)

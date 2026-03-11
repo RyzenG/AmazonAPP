@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useStore } from '../../store/useStore'
+import { usePushNotifications } from '../../hooks/usePushNotifications'
 
 const titles: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -17,6 +18,7 @@ const titles: Record<string, string> = {
 export default function Layout() {
   const { sidebarOpen } = useStore()
   const { pathname } = useLocation()
+  usePushNotifications()
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex">
