@@ -234,30 +234,31 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
     const el = document.getElementById('invoice-print-content')
     if (!el) return null
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const imgData = canvas.toDataURL('image/png')
+      // scale 1.5 + JPEG 0.88 gives good quality at ~1/5 the size of scale:2 PNG
+      const canvas = await html2canvas(el, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/jpeg', 0.88)
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
       const pageW = pdf.internal.pageSize.getWidth()
       const pageH = pdf.internal.pageSize.getHeight()
       const ratio = canvas.height / canvas.width
       const imgH = pageW * ratio
       if (imgH <= pageH) {
-        pdf.addImage(imgData, 'PNG', 0, 0, pageW, imgH)
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageW, imgH)
       } else {
-        // Multi-page support
+        // Multi-page: split into A4-height slices
+        const slicePx = Math.floor(canvas.width * (pageH / pageW))
         let y = 0
         while (y < canvas.height) {
-          const sliceH = Math.min(canvas.height - y, Math.floor(canvas.width * pageH / pageW))
-          const sliceCanvas = document.createElement('canvas')
-          sliceCanvas.width = canvas.width
-          sliceCanvas.height = sliceH
-          sliceCanvas.getContext('2d')!.drawImage(canvas, 0, -y)
+          const h = Math.min(slicePx, canvas.height - y)
+          const slice = document.createElement('canvas')
+          slice.width  = canvas.width
+          slice.height = h
+          slice.getContext('2d')!.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h)
           if (y > 0) pdf.addPage()
-          pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, pageH)
-          y += sliceH
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.88), 'JPEG', 0, 0, pageW, h * (pageW / canvas.width))
+          y += h
         }
       }
-      // Return base64 without the data:application/pdf;base64, prefix
       return pdf.output('datauristring').split(',')[1]
     } catch {
       return null

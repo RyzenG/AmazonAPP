@@ -92,7 +92,7 @@ async function migrate() {
 migrate()
 
 app.use(cors())
-app.use(express.json({ limit: '10mb' })) // limit amplio para logos base64
+app.use(express.json({ limit: '50mb' })) // limit amplio para logos y PDF base64
 
 app.use('/api/users',             usersRouter)
 app.use('/api/email',             emailRouter)
