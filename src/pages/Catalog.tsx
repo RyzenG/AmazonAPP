@@ -14,11 +14,11 @@ import * as XLSX from 'xlsx'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const CATEGORY_EMOJI: Record<string, string> = {
-  Tortas:'🎂', Panes:'🍞', Galletas:'🍪', Muffins:'🧁',
+  Macetas:'🪴', Bandejas:'🎨', Jarrones:'🏺', Decoración:'✨', Suculentas:'🌵',
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  Tortas:'badge-blue', Panes:'badge-green', Galletas:'badge-yellow',
-  Muffins:'badge-purple',
+  Macetas:'badge-green', Bandejas:'badge-blue', Jarrones:'badge-purple',
+  Decoración:'badge-yellow', Suculentas:'badge-teal',
 }
 const GRADIENT_BG = [
   'from-blue-400 to-blue-600', 'from-emerald-400 to-emerald-600',

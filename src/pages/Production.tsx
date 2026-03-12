@@ -115,7 +115,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
   const [recipeId, setRecipeId] = useState('')
   const [qty, setQty]           = useState('')
   const [date, setDate]         = useState(new Date().toISOString().split('T')[0])
-  const [assigned, setAssigned] = useState('María García')
+  const [assigned, setAssigned] = useState('Carlos Mendez')
 
   const recipe = recipes.find((r) => r.id === recipeId)
 
@@ -161,9 +161,9 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className="label">Receta</label>
+            <label className="label">Fórmula de mezcla</label>
             <select className="input" value={recipeId} onChange={(e) => setRecipeId(e.target.value)}>
-              <option value="">-- Seleccionar receta --</option>
+              <option value="">-- Seleccionar fórmula --</option>
               {recipes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
           </div>
@@ -171,7 +171,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1 animate-fadeIn">
               <p><strong>Rendimiento:</strong> {recipe.yieldQty} {recipe.yieldUnit} por lote</p>
               <p><strong>Costo/unidad:</strong> {formatCOP(recipe.costPerUnit)}</p>
-              <p><strong>Ingredientes:</strong> {recipe.ingredients.length} insumos</p>
+              <p><strong>Materiales:</strong> {recipe.ingredients.length} insumos</p>
             </div>
           )}
           <div>
@@ -186,7 +186,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
           <div>
             <label className="label">Asignado a</label>
             <select className="input" value={assigned} onChange={(e) => setAssigned(e.target.value)}>
-              {['María García','Carlos López','Ana Ramos'].map((n) => <option key={n}>{n}</option>)}
+              {['Carlos Mendez','Laura Herrera','Miguel Torres'].map((n) => <option key={n}>{n}</option>)}
             </select>
           </div>
           {recipe && qty && (
@@ -267,13 +267,13 @@ function NewRecipeModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fadeIn">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
-          <h3 className="font-semibold text-slate-800 dark:text-white">Nueva receta</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-white">Nueva fórmula de mezcla</h3>
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
         <div className="px-6 py-5 space-y-5">
           <div>
-            <label className="label">Nombre de la receta *</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Torta de chocolate" />
+            <label className="label">Nombre de la fórmula *</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ej. Fórmula Estándar Maceta" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -292,12 +292,12 @@ function NewRecipeModal({ onClose }: { onClose: () => void }) {
           {/* Ingredientes */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="label mb-0">Ingredientes / Insumos *</label>
+              <label className="label mb-0">Materiales / Insumos *</label>
               <button className="btn btn-secondary btn-sm" onClick={addIngredient}><Plus size={12} /> Agregar</button>
             </div>
             {ingredients.length === 0 && (
               <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-gray-600 rounded-lg text-slate-400 dark:text-gray-500 text-sm">
-                Agrega los insumos de esta receta
+                Agrega los materiales de esta fórmula
               </div>
             )}
             {ingredients.map((ing, i) => (
@@ -350,7 +350,7 @@ function NewRecipeModal({ onClose }: { onClose: () => void }) {
         </div>
         <div className="flex gap-3 px-6 pb-5 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-slate-100 dark:border-gray-700 pt-4">
           <button className="btn btn-secondary flex-1" onClick={onClose}>Cancelar</button>
-          <button className="btn btn-primary flex-1" onClick={handleSave}>Guardar receta</button>
+          <button className="btn btn-primary flex-1" onClick={handleSave}>Guardar fórmula</button>
         </div>
       </div>
     </div>
@@ -382,12 +382,12 @@ export default function Production() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Producción</h1>
-          <p className="text-slate-500 dark:text-gray-400 text-sm">Órdenes de producción y recetas</p>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">Órdenes de producción y fórmulas de mezcla</p>
         </div>
         <div className="flex gap-2">
           {activeTab === 'recipes' && (
             <button className="btn btn-secondary" onClick={() => setShowRecipeModal(true)}>
-              <BookOpen size={16} /> Nueva receta
+              <BookOpen size={16} /> Nueva fórmula
             </button>
           )}
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
@@ -419,7 +419,7 @@ export default function Production() {
                 ? 'bg-white dark:bg-gray-800 text-slate-800 dark:text-white shadow-sm'
                 : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
             }`}>
-            {t === 'orders' ? '📋 Órdenes' : '📖 Recetas'}
+            {t === 'orders' ? '📋 Órdenes' : '🧪 Fórmulas'}
           </button>
         ))}
       </div>
@@ -493,7 +493,7 @@ export default function Production() {
           {recipes.length === 0 && (
             <div className="col-span-2 text-center py-16 text-slate-400 dark:text-gray-600">
               <BookOpen size={40} className="mx-auto mb-3 opacity-30" />
-              <p>No hay recetas. Crea una con el botón "Nueva receta".</p>
+              <p>No hay fórmulas. Crea una con el botón "Nueva fórmula".</p>
             </div>
           )}
         </div>
