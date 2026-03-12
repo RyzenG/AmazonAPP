@@ -8,7 +8,8 @@ const SELECT_COLS = `
   id, sku, name, category, price::float, cost::float, stock, unit,
   description, image,
   recipe_id AS "recipeId",
-  is_active AS "isActive"`
+  is_active AS "isActive",
+  COALESCE(variants, '[]'::jsonb) AS variants`
 
 router.get('/', async (req, res) => {
   try {
@@ -20,12 +21,12 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { id, sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive } = req.body
+  const { id, sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive, variants } = req.body
   try {
     const { rows } = await pool.query(
-      `INSERT INTO products (id, sku, name, category, price, cost, stock, unit, description, image, recipe_id, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [id, sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive ?? true]
+      `INSERT INTO products (id, sku, name, category, price, cost, stock, unit, description, image, recipe_id, is_active, variants)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [id, sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive ?? true, JSON.stringify(variants ?? [])]
     )
     const u = getUser(req)
     await log({ userName: u.name, userEmail: u.email, action: 'crear', entity: 'Producto', entityId: id, entityName: name })
@@ -36,12 +37,12 @@ router.post('/', async (req, res) => {
 })
 
 router.put('/:id', async (req, res) => {
-  const { sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive } = req.body
+  const { sku, name, category, price, cost, stock, unit, description, image, recipeId, isActive, variants } = req.body
   try {
     const { rows } = await pool.query(
       `UPDATE products SET sku=$1, name=$2, category=$3, price=$4, cost=$5, stock=$6, unit=$7,
-              description=$8, image=$9, recipe_id=$10, is_active=$11 WHERE id=$12 RETURNING *`,
-      [sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive, req.params.id]
+              description=$8, image=$9, recipe_id=$10, is_active=$11, variants=$12 WHERE id=$13 RETURNING *`,
+      [sku ?? '', name, category, price, cost, stock, unit, description ?? '', image ?? '', recipeId ?? '', isActive, JSON.stringify(variants ?? []), req.params.id]
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
     const u = getUser(req)

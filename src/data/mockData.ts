@@ -8,10 +8,21 @@ export interface Supply {
   supplier?: string
 }
 
+export interface ProductVariant {
+  id: string
+  sku: string
+  attributes: { color?: string; acabado?: string }
+  priceOverride?: number
+  costOverride?: number
+  stock: number
+  isActive: boolean
+}
+
 export interface Product {
   id: string; sku: string; name: string; category: string
   unit: string; stock: number; price: number; cost: number
   isActive: boolean; recipeId?: string; image?: string; description?: string
+  variants?: ProductVariant[]
 }
 
 export interface Recipe {
@@ -37,7 +48,7 @@ export interface Customer {
 
 export interface SaleOrder {
   id: string; orderNumber: string; customer: string; customerId: string
-  items: { product: string; qty: number; price: number; subtotal: number }[]
+  items: { product: string; productId?: string; variantId?: string; qty: number; price: number; subtotal: number }[]
   subtotal: number; tax: number; total: number; status: string
   paymentStatus: string; paymentMethod: string; date: string; deliveryDate?: string
   notes?: string
@@ -64,11 +75,22 @@ export const supplies: Supply[] = [
 
 // ── Products ─────────────────────────────────
 export const products: Product[] = [
-  { id:'p1',  sku:'PRD-001', name:'Maceta Redonda S',        category:'Macetas',     unit:'u',  stock:28, price:35000,  cost:9800,  isActive:true,  recipeId:'r1', description:'Maceta redonda en concreto pigmentado. Diámetro 12 cm. Perfecta para suculentas.' },
+  { id:'p1',  sku:'PRD-001', name:'Maceta Redonda S',        category:'Macetas',     unit:'u',  stock:28, price:35000,  cost:9800,  isActive:true,  recipeId:'r1', description:'Maceta redonda en concreto pigmentado. Diámetro 12 cm. Perfecta para suculentas.',
+    variants: [
+      { id:'v1-1', sku:'PRD-001-NAT', attributes:{ color:'Natural',   acabado:'Sellado mate'     }, stock:10, isActive:true },
+      { id:'v1-2', sku:'PRD-001-NEG', attributes:{ color:'Negro',     acabado:'Sellado mate'     }, priceOverride:38000, stock:8,  isActive:true },
+      { id:'v1-3', sku:'PRD-001-TER', attributes:{ color:'Terracota', acabado:'Sellado mate'     }, priceOverride:38000, stock:6,  isActive:true },
+      { id:'v1-4', sku:'PRD-001-BLA', attributes:{ color:'Blanco',    acabado:'Sin sellar'       }, priceOverride:40000, stock:4,  isActive:true },
+    ] },
   { id:'p2',  sku:'PRD-002', name:'Maceta Redonda M',        category:'Macetas',     unit:'u',  stock:20, price:55000,  cost:14500, isActive:true,  recipeId:'r1', description:'Maceta redonda mediana en concreto. Diámetro 18 cm. Acabado liso sellado.' },
   { id:'p3',  sku:'PRD-003', name:'Maceta Redonda L',        category:'Macetas',     unit:'u',  stock:12, price:85000,  cost:22000, isActive:true,  recipeId:'r3', description:'Maceta redonda grande. Diámetro 25 cm. Ideal para plantas de interior.' },
   { id:'p4',  sku:'PRD-004', name:'Bandeja Rectangular',     category:'Bandejas',    unit:'u',  stock:15, price:68000,  cost:18500, isActive:true,  recipeId:'r2', description:'Bandeja rectangular para composiciones. 30×15 cm. Concreto natural con fibra.' },
-  { id:'p5',  sku:'PRD-005', name:'Jarrón Cónico',           category:'Jarrones',    unit:'u',  stock:10, price:95000,  cost:26000, isActive:true,  recipeId:'r3', description:'Jarrón cónico de alto impacto. Alto 30 cm. Acabado pigmentado negro mate.' },
+  { id:'p5',  sku:'PRD-005', name:'Jarrón Cónico',           category:'Jarrones',    unit:'u',  stock:10, price:95000,  cost:26000, isActive:true,  recipeId:'r3', description:'Jarrón cónico de alto impacto. Alto 30 cm. Acabado pigmentado negro mate.',
+    variants: [
+      { id:'v5-1', sku:'PRD-005-NAT', attributes:{ color:'Natural', acabado:'Sellado mate'  }, stock:4,  isActive:true },
+      { id:'v5-2', sku:'PRD-005-NEG', attributes:{ color:'Negro',   acabado:'Sellado mate'  }, priceOverride:105000, stock:6, isActive:true },
+      { id:'v5-3', sku:'PRD-005-BLA', attributes:{ color:'Blanco',  acabado:'Sellado brillante' }, priceOverride:108000, stock:2, isActive:true },
+    ] },
   { id:'p6',  sku:'PRD-006', name:'Portavelas Set x3',       category:'Decoración',  unit:'set',stock:22, price:48000,  cost:12000, isActive:true,  recipeId:'r1', description:'Set de 3 portavelas en concreto. Alturas 5-8-12 cm. Diseño minimalista.' },
   { id:'p7',  sku:'PRD-007', name:'Macetero Hexagonal',      category:'Macetas',     unit:'u',  stock:8,  price:72000,  cost:19800, isActive:true,  recipeId:'r2', description:'Macetero hexagonal moderno. 20×20 cm. Concreto blanco con sellador UV.' },
   { id:'p8',  sku:'PRD-008', name:'Suculenta Haworthia',     category:'Suculentas',  unit:'u',  stock:35, price:18000,  cost:4500,  isActive:true,  description:'Haworthia fasciata en maceta de 8 cm. Lista para regalo o decoración.' },
@@ -144,14 +166,14 @@ export const customers: Customer[] = [
 
 // ── Sales Orders ──────────────────────────────
 export const saleOrders: SaleOrder[] = [
-  { id:'so1', orderNumber:'VTA-2025-001', customer:'Daniela Morales',    customerId:'c1', items:[{product:'Maceta Redonda M',qty:6,price:55000,subtotal:330000},{product:'Jarrón Cónico',qty:2,price:95000,subtotal:190000}], subtotal:520000, tax:98800,  total:618800,  status:'delivered',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-03-07', deliveryDate:'2025-03-07' },
-  { id:'so2', orderNumber:'VTA-2025-002', customer:'Felipe Guzmán',      customerId:'c2', items:[{product:'Maceta Redonda S',qty:20,price:35000,subtotal:700000},{product:'Portavelas Set x3',qty:10,price:48000,subtotal:480000}], subtotal:1180000, tax:224200, total:1404200, status:'processing',  paymentStatus:'partial', paymentMethod:'Transferencia', date:'2025-03-07', deliveryDate:'2025-03-12' },
-  { id:'so3', orderNumber:'VTA-2025-003', customer:'Camila Ospina',      customerId:'c3', items:[{product:'Suculenta Echeveria',qty:3,price:16000,subtotal:48000},{product:'Maceta Redonda S',qty:1,price:35000,subtotal:35000}], subtotal:83000, tax:15770, total:98770,   status:'confirmed',   paymentStatus:'paid',    paymentMethod:'Tarjeta',       date:'2025-03-06' },
-  { id:'so4', orderNumber:'VTA-2025-004', customer:'Boutique Terraverde', customerId:'c4', items:[{product:'Bandeja Rectangular',qty:8,price:68000,subtotal:544000},{product:'Macetero Hexagonal',qty:5,price:72000,subtotal:360000}], subtotal:904000, tax:171760, total:1075760, status:'pending',     paymentStatus:'pending', paymentMethod:'Transferencia', date:'2025-03-08', deliveryDate:'2025-03-15' },
-  { id:'so5', orderNumber:'VTA-2025-005', customer:'Hotel Selva Real',   customerId:'c6', items:[{product:'Jarrón Cónico',qty:4,price:95000,subtotal:380000},{product:'Maceta Redonda L',qty:3,price:85000,subtotal:255000}], subtotal:635000, tax:120650, total:755650,  status:'confirmed',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-03-05', deliveryDate:'2025-03-10' },
-  { id:'so6', orderNumber:'VTA-2025-006', customer:'Valentina Cruz',     customerId:'c5', items:[{product:'Kit Inicio Concreto',qty:1,price:180000,subtotal:180000}], subtotal:180000, tax:34200, total:214200, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Efectivo',      date:'2025-03-04' },
-  { id:'so7', orderNumber:'VTA-2025-007', customer:'Daniela Morales',    customerId:'c1', items:[{product:'Portavelas Set x3',qty:4,price:48000,subtotal:192000},{product:'Suculenta Haworthia',qty:4,price:18000,subtotal:72000}], subtotal:264000, tax:50160, total:314160,  status:'delivered',   paymentStatus:'paid',    paymentMethod:'Tarjeta',       date:'2025-02-28', deliveryDate:'2025-02-28' },
-  { id:'so8', orderNumber:'VTA-2025-008', customer:'Felipe Guzmán',      customerId:'c2', items:[{product:'Maceta Redonda M',qty:12,price:55000,subtotal:660000},{product:'Maceta Redonda S',qty:15,price:35000,subtotal:525000}], subtotal:1185000, tax:225150, total:1410150, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-02-20', deliveryDate:'2025-02-22' },
+  { id:'so1', orderNumber:'VTA-2025-001', customer:'Daniela Morales',    customerId:'c1', items:[{product:'Maceta Redonda M',productId:'p2',qty:6,price:55000,subtotal:330000},{product:'Jarrón Cónico',productId:'p5',qty:2,price:95000,subtotal:190000}], subtotal:520000, tax:98800,  total:618800,  status:'delivered',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-03-07', deliveryDate:'2025-03-07' },
+  { id:'so2', orderNumber:'VTA-2025-002', customer:'Felipe Guzmán',      customerId:'c2', items:[{product:'Maceta Redonda S',productId:'p1',qty:20,price:35000,subtotal:700000},{product:'Portavelas Set x3',productId:'p6',qty:10,price:48000,subtotal:480000}], subtotal:1180000, tax:224200, total:1404200, status:'processing',  paymentStatus:'partial', paymentMethod:'Transferencia', date:'2025-03-07', deliveryDate:'2025-03-12' },
+  { id:'so3', orderNumber:'VTA-2025-003', customer:'Camila Ospina',      customerId:'c3', items:[{product:'Suculenta Echeveria',productId:'p9',qty:3,price:16000,subtotal:48000},{product:'Maceta Redonda S',productId:'p1',qty:1,price:35000,subtotal:35000}], subtotal:83000, tax:15770, total:98770,   status:'confirmed',   paymentStatus:'paid',    paymentMethod:'Tarjeta',       date:'2025-03-06' },
+  { id:'so4', orderNumber:'VTA-2025-004', customer:'Boutique Terraverde', customerId:'c4', items:[{product:'Bandeja Rectangular',productId:'p4',qty:8,price:68000,subtotal:544000},{product:'Macetero Hexagonal',productId:'p7',qty:5,price:72000,subtotal:360000}], subtotal:904000, tax:171760, total:1075760, status:'pending',     paymentStatus:'pending', paymentMethod:'Transferencia', date:'2025-03-08', deliveryDate:'2025-03-15' },
+  { id:'so5', orderNumber:'VTA-2025-005', customer:'Hotel Selva Real',   customerId:'c6', items:[{product:'Jarrón Cónico',productId:'p5',qty:4,price:95000,subtotal:380000},{product:'Maceta Redonda L',productId:'p3',qty:3,price:85000,subtotal:255000}], subtotal:635000, tax:120650, total:755650,  status:'confirmed',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-03-05', deliveryDate:'2025-03-10' },
+  { id:'so6', orderNumber:'VTA-2025-006', customer:'Valentina Cruz',     customerId:'c5', items:[{product:'Kit Inicio Concreto',productId:'p11',qty:1,price:180000,subtotal:180000}], subtotal:180000, tax:34200, total:214200, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Efectivo',      date:'2025-03-04' },
+  { id:'so7', orderNumber:'VTA-2025-007', customer:'Daniela Morales',    customerId:'c1', items:[{product:'Portavelas Set x3',productId:'p6',qty:4,price:48000,subtotal:192000},{product:'Suculenta Haworthia',productId:'p8',qty:4,price:18000,subtotal:72000}], subtotal:264000, tax:50160, total:314160,  status:'delivered',   paymentStatus:'paid',    paymentMethod:'Tarjeta',       date:'2025-02-28', deliveryDate:'2025-02-28' },
+  { id:'so8', orderNumber:'VTA-2025-008', customer:'Felipe Guzmán',      customerId:'c2', items:[{product:'Maceta Redonda M',productId:'p2',qty:12,price:55000,subtotal:660000},{product:'Maceta Redonda S — Negro / Sellado mate',productId:'p1',variantId:'v1-2',qty:15,price:38000,subtotal:570000}], subtotal:1230000, tax:233700, total:1463700, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-02-20', deliveryDate:'2025-02-22' },
 ]
 
 // ── Sales chart data (last 30 days) ───────────

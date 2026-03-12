@@ -55,6 +55,7 @@ async function migrate() {
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS image TEXT DEFAULT '';
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS sku TEXT DEFAULT '';
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS recipe_id TEXT DEFAULT '';
+      ALTER TABLE products   ADD COLUMN IF NOT EXISTS variants JSONB DEFAULT '[]';
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,

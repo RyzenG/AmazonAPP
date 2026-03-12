@@ -5,7 +5,7 @@ import {
   ImageIcon, ChevronDown, Star, ShoppingCart, DollarSign, Package,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { Product } from '../data/mockData'
+import { Product, ProductVariant } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
@@ -31,6 +31,11 @@ const catGrad   = (cat: string) => {
   const keys = Object.keys(CATEGORY_EMOJI)
   return GRADIENT_BG[keys.indexOf(cat) % GRADIENT_BG.length] ?? GRADIENT_BG[0]
 }
+const VARIANT_COLORS  = ['Natural', 'Negro', 'Blanco', 'Terracota', 'Verde musgo']
+const VARIANT_ACABADOS = ['Sellado mate', 'Sellado brillante', 'Sin sellar']
+const variantLabel = (v: ProductVariant) =>
+  [v.attributes.color, v.attributes.acabado].filter(Boolean).join(' / ')
+
 const margin    = (p: Product) => p.price > 0 ? ((p.price - p.cost) / p.price * 100) : 0
 const marginColor = (m: number) =>
   m > 40 ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
@@ -86,8 +91,24 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
     sku: `PRD-${String(products.length + 1).padStart(4, '0')}`,
     name: '', category: '', unit: 'u',
     stock: 0, price: 0, cost: 0,
-    isActive: true, description: '', image: undefined,
+    isActive: true, description: '', image: undefined, variants: [],
   })
+  const [modalTab, setModalTab] = useState<'general' | 'variants'>('general')
+
+  // ── Variant helpers ──────────────────────────────────────────────────────
+  const variants: ProductVariant[] = (form.variants ?? []) as ProductVariant[]
+  const setVariants = (v: ProductVariant[]) => setForm({ ...form, variants: v })
+
+  const addVariantRow = () => setVariants([...variants, {
+    id: `v${Date.now()}`,
+    sku: `${form.sku ?? 'PRD'}-V${String(variants.length + 1).padStart(2, '0')}`,
+    attributes: { color: 'Natural', acabado: 'Sellado mate' },
+    stock: 0,
+    isActive: true,
+  }])
+  const removeVariantRow = (idx: number) => setVariants(variants.filter((_, i) => i !== idx))
+  const patchVariant = (idx: number, patch: Partial<ProductVariant>) =>
+    setVariants(variants.map((v, i) => i === idx ? { ...v, ...patch } : v))
 
   const handleSave = () => {
     if (!form.name?.trim()) return
@@ -99,8 +120,8 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
 
   const m = margin(form as Product)
   const profit = (form.price ?? 0) - (form.cost ?? 0)
-
   const existingCategories = [...new Set(products.map(p => p.category).filter(Boolean))]
+  const totalVariantStock = variants.reduce((a, v) => a + v.stock, 0)
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -112,91 +133,175 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
           <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
         </div>
 
-        <div className="px-6 py-5 grid grid-cols-2 gap-4">
-          {/* Image upload */}
-          <ImageUpload value={form.image} onChange={(v) => setForm({ ...form, image: v })} />
-
-          {/* SKU + Name */}
-          <div>
-            <label className="label">SKU</label>
-            <input className="input" value={form.sku ?? ''}
-              onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Nombre *</label>
-            <input className="input" value={form.name ?? ''}
-              onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="label">Categoría</label>
-            <input className="input" list="cat-list" value={form.category ?? ''}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              placeholder="Ej: Tortas, Panes..." />
-            <datalist id="cat-list">
-              {existingCategories.map(c => <option key={c} value={c} />)}
-            </datalist>
-          </div>
-
-          {/* Unit */}
-          <div>
-            <label className="label">Unidad</label>
-            <select className="input" value={form.unit ?? 'u'}
-              onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-              {['u','kg','g','L','mL','doc','caja','par','rollo'].map(u => <option key={u}>{u}</option>)}
-            </select>
-          </div>
-
-          {/* Prices */}
-          <div>
-            <label className="label">Precio de venta ($)</label>
-            <input className="input" type="number" min="0" step="0.01" value={form.price ?? 0}
-              onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
-          </div>
-          <div>
-            <label className="label">Costo de producción ($)</label>
-            <input className="input" type="number" min="0" step="0.01" value={form.cost ?? 0}
-              onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} />
-          </div>
-
-          {/* Stock + Status */}
-          <div>
-            <label className="label">Stock actual</label>
-            <input className="input" type="number" min="0" value={form.stock ?? 0}
-              onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
-          </div>
-          <div>
-            <label className="label">Estado</label>
-            <select className="input" value={form.isActive ? 'activo' : 'inactivo'}
-              onChange={(e) => setForm({ ...form, isActive: e.target.value === 'activo' })}>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
-            </select>
-          </div>
-
-          {/* Recipe */}
-          <div className="col-span-2">
-            <label className="label">Receta vinculada</label>
-            <select className="input" value={form.recipeId ?? ''}
-              onChange={(e) => setForm({ ...form, recipeId: e.target.value || undefined })}>
-              <option value="">— Sin receta —</option>
-              {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </div>
-
-          {/* Description */}
-          <div className="col-span-2">
-            <label className="label">Descripción</label>
-            <textarea className="input resize-none" rows={2}
-              placeholder="Describe brevemente el producto..."
-              value={form.description ?? ''}
-              onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        {/* Tab switcher */}
+        <div className="px-6 pt-4 pb-2">
+          <div className="flex gap-1 bg-slate-100 dark:bg-gray-700 p-1 rounded-xl">
+            {(['general', 'variants'] as const).map((t) => (
+              <button key={t} type="button" onClick={() => setModalTab(t)}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  modalTab === t
+                    ? 'bg-white dark:bg-gray-800 text-slate-800 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+                }`}>
+                {t === 'general' ? '📋 Datos generales' : `🎨 Variantes${variants.length > 0 ? ` (${variants.length})` : ''}`}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Margin preview */}
-        {(form.price ?? 0) > 0 && (form.cost ?? 0) > 0 && (
+        {/* GENERAL TAB */}
+        {modalTab === 'general' && (
+          <div className="px-6 py-4 grid grid-cols-2 gap-4">
+            <ImageUpload value={form.image} onChange={(v) => setForm({ ...form, image: v })} />
+            <div>
+              <label className="label">SKU</label>
+              <input className="input" value={form.sku ?? ''}
+                onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Nombre *</label>
+              <input className="input" value={form.name ?? ''}
+                onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Categoría</label>
+              <input className="input" list="cat-list" value={form.category ?? ''}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="Ej: Macetas, Jarrones..." />
+              <datalist id="cat-list">
+                {existingCategories.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div>
+              <label className="label">Unidad</label>
+              <select className="input" value={form.unit ?? 'u'}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+                {['u','kg','g','L','mL','doc','caja','par','rollo','set'].map(u => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Precio de venta ($)</label>
+              <input className="input" type="number" min="0" step="1" value={form.price ?? 0}
+                onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div>
+              <label className="label">Costo de producción ($)</label>
+              <input className="input" type="number" min="0" step="1" value={form.cost ?? 0}
+                onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div>
+              <label className="label">Stock actual</label>
+              <input className="input" type="number" min="0" value={form.stock ?? 0}
+                onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
+            </div>
+            <div>
+              <label className="label">Estado</label>
+              <select className="input" value={form.isActive ? 'activo' : 'inactivo'}
+                onChange={(e) => setForm({ ...form, isActive: e.target.value === 'activo' })}>
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="label">Fórmula vinculada</label>
+              <select className="input" value={form.recipeId ?? ''}
+                onChange={(e) => setForm({ ...form, recipeId: e.target.value || undefined })}>
+                <option value="">— Sin fórmula —</option>
+                {recipes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="label">Descripción</label>
+              <textarea className="input resize-none" rows={2}
+                placeholder="Describe brevemente el producto..."
+                value={form.description ?? ''}
+                onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+          </div>
+        )}
+
+        {/* VARIANTS TAB */}
+        {modalTab === 'variants' && (
+          <div className="px-6 py-4 space-y-4">
+            {/* Info callout */}
+            <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 rounded-xl p-3 text-xs text-violet-700 dark:text-violet-300">
+              <p className="font-semibold mb-0.5">¿Qué son las variantes?</p>
+              <p>Permiten ofrecer este producto en diferentes colores o acabados, con stock y precio propios. Precio base: <strong>{formatCOP(form.price ?? 0)}</strong></p>
+            </div>
+
+            {/* Variants list */}
+            <div className="space-y-2">
+              {variants.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed border-slate-200 dark:border-gray-600 rounded-xl text-slate-400 dark:text-gray-500 text-sm">
+                  Sin variantes. Agrega la primera con el botón de abajo.
+                </div>
+              )}
+              {variants.map((v, idx) => (
+                <div key={v.id} className="bg-slate-50 dark:bg-gray-700 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    {/* Color */}
+                    <select className="input flex-1 text-xs" value={v.attributes.color ?? ''}
+                      onChange={(e) => patchVariant(idx, { attributes: { ...v.attributes, color: e.target.value } })}>
+                      <option value="">— Color —</option>
+                      {VARIANT_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {/* Acabado */}
+                    <select className="input flex-1 text-xs" value={v.attributes.acabado ?? ''}
+                      onChange={(e) => patchVariant(idx, { attributes: { ...v.attributes, acabado: e.target.value } })}>
+                      <option value="">— Acabado —</option>
+                      {VARIANT_ACABADOS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    {/* Active */}
+                    <button type="button" onClick={() => patchVariant(idx, { isActive: !v.isActive })}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex-shrink-0 ${v.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-200 text-slate-500 dark:bg-gray-600 dark:text-gray-400'}`}>
+                      {v.isActive ? 'Activa' : 'Inactiva'}
+                    </button>
+                    {/* Delete */}
+                    <button type="button" onClick={() => removeVariantRow(idx)}
+                      className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 flex-shrink-0">
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Price override */}
+                    <div>
+                      <label className="text-xs text-slate-400 dark:text-gray-500 mb-1 block">Precio (vacío = precio base)</label>
+                      <input className="input text-xs" type="number" min="0" step="1"
+                        placeholder={String(form.price ?? 0)}
+                        value={v.priceOverride ?? ''}
+                        onChange={(e) => patchVariant(idx, { priceOverride: e.target.value ? parseFloat(e.target.value) : undefined })} />
+                    </div>
+                    {/* Stock */}
+                    <div>
+                      <label className="text-xs text-slate-400 dark:text-gray-500 mb-1 block">Stock ({form.unit ?? 'u'})</label>
+                      <input className="input text-xs" type="number" min="0" value={v.stock}
+                        onChange={(e) => patchVariant(idx, { stock: parseFloat(e.target.value) || 0 })} />
+                    </div>
+                  </div>
+                  {/* SKU preview */}
+                  <p className="text-xs text-slate-400 dark:text-gray-500">SKU: <span className="font-mono">{v.sku}</span></p>
+                </div>
+              ))}
+            </div>
+
+            {/* Add button */}
+            <button type="button" className="btn btn-secondary w-full flex items-center gap-2 justify-center"
+              onClick={addVariantRow}>
+              <Plus size={14} /> Agregar variante
+            </button>
+
+            {/* Total stock summary */}
+            {variants.length > 0 && (
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-3 flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-gray-400">Stock total variantes</span>
+                <span className="font-bold text-slate-800 dark:text-white">{totalVariantStock} {form.unit ?? 'u'}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Margin preview (general tab only) */}
+        {modalTab === 'general' && (form.price ?? 0) > 0 && (form.cost ?? 0) > 0 && (
           <div className="mx-6 mb-4 grid grid-cols-3 gap-3 text-center">
             <div className="bg-slate-50 dark:bg-gray-700 rounded-lg p-3">
               <p className="text-xs text-slate-400 dark:text-gray-500">Ganancia / u</p>
@@ -215,7 +320,7 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
           </div>
         )}
 
-        <div className="flex gap-3 px-6 pb-5">
+        <div className="flex gap-3 px-6 pb-5 border-t border-slate-100 dark:border-gray-700 pt-4">
           <button className="btn btn-secondary flex-1" onClick={onClose}>Cancelar</button>
           <button className="btn btn-primary flex-1" onClick={handleSave}>
             {product ? 'Actualizar' : 'Crear producto'}
@@ -291,8 +396,11 @@ function ProductCard({ product, soldUnits, revenue, onEdit, onDelete, onClick, c
 
         {/* Actions */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {product.recipeId && <span className="badge badge-blue text-xs">Receta</span>}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {product.recipeId && <span className="badge badge-blue text-xs">Fórmula</span>}
+            {(product.variants?.length ?? 0) > 0 && (
+              <span className="badge badge-purple text-xs">{product.variants!.length} vars.</span>
+            )}
             <span className={`badge ${product.isActive ? 'badge-green' : 'badge-gray'} text-xs`}>
               {product.isActive ? 'Activo' : 'Inactivo'}
             </span>
@@ -425,10 +533,64 @@ function ProductDrawer({ product, onClose, onEdit, soldUnits, revenue, orderHist
             </div>
           </div>
 
+          {/* Variants */}
+          {(product.variants?.length ?? 0) > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">
+                Variantes ({product.variants!.length})
+              </h4>
+              <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-gray-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-gray-700/50">
+                      <th className="text-left px-3 py-2 font-semibold text-slate-500 dark:text-gray-400">Variante</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-500 dark:text-gray-400">Precio</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-500 dark:text-gray-400">Stock</th>
+                      <th className="text-center px-3 py-2 font-semibold text-slate-500 dark:text-gray-400">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-gray-700">
+                    {product.variants!.map((v) => (
+                      <tr key={v.id} className={!v.isActive ? 'opacity-50' : ''}>
+                        <td className="px-3 py-2">
+                          <p className="font-medium text-slate-700 dark:text-gray-200">{variantLabel(v)}</p>
+                          <p className="text-slate-400 dark:text-gray-500 font-mono">{v.sku}</p>
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-gray-200">
+                          {formatCOP(v.priceOverride ?? product.price)}
+                          {v.priceOverride && v.priceOverride !== product.price && (
+                            <span className="block text-slate-400 dark:text-gray-500 font-normal">precio especial</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600 dark:text-gray-300">
+                          {v.stock} {product.unit}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`badge ${v.isActive ? 'badge-green' : 'badge-gray'}`}>
+                            {v.isActive ? '✓' : '✗'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50 dark:bg-gray-700/50">
+                      <td colSpan={2} className="px-3 py-2 text-xs text-slate-400 dark:text-gray-500">Stock total variantes</td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-700 dark:text-gray-200">
+                        {product.variants!.reduce((a, v) => a + v.stock, 0)} {product.unit}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Recipe */}
           {recipe && (
             <div>
-              <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">Receta vinculada</h4>
+              <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">Fórmula vinculada</h4>
               <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 rounded-xl p-4">
                 <p className="font-semibold text-violet-800 dark:text-violet-300 mb-1">{recipe.name}</p>
                 <p className="text-xs text-slate-500 dark:text-gray-400 mb-3">Rinde {recipe.yieldQty} {recipe.yieldUnit} · Costo/u {formatCOP(recipe.costPerUnit)}</p>

@@ -28,17 +28,27 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
   const { customers, products, addSaleOrder, saleOrders, companySettings } = useStore()
   const [customerId, setCustomerId] = useState('')
   const [payMethod, setPayMethod]   = useState('Efectivo')
-  const [items, setItems]           = useState<{productId:string;product:string;qty:number;price:number}[]>([])
+  const [items, setItems]           = useState<{productId:string;variantId:string;product:string;qty:number;price:number}[]>([])
   const [delDate, setDelDate]       = useState('')
   const [notes, setNotes]           = useState('')
 
-  const addItem = () => setItems([...items, { productId:'', product:'', qty:1, price:0 }])
+  const addItem = () => setItems([...items, { productId:'', variantId:'', product:'', qty:1, price:0 }])
   const removeItem = (i: number) => setItems(items.filter((_,j) => j !== i))
   const updateItem = (i: number, field: string, value: string | number) => {
     const copy = [...items]
     if (field === 'productId') {
       const p = products.find((x) => x.id === value)
-      copy[i] = { ...copy[i], productId: String(value), product: p?.name ?? '', price: p?.price ?? 0 }
+      copy[i] = { ...copy[i], productId: String(value), variantId: '', product: p?.name ?? '', price: p?.price ?? 0 }
+    } else if (field === 'variantId') {
+      const p = products.find((x) => x.id === copy[i].productId)
+      const v = p?.variants?.find((x) => x.id === value)
+      if (v) {
+        const label = [v.attributes.color, v.attributes.acabado].filter(Boolean).join(' / ')
+        copy[i] = { ...copy[i], variantId: String(value), price: v.priceOverride ?? p?.price ?? 0, product: `${p?.name ?? ''} — ${label}` }
+      } else {
+        const p2 = products.find((x) => x.id === copy[i].productId)
+        copy[i] = { ...copy[i], variantId: '', product: p2?.name ?? '', price: p2?.price ?? 0 }
+      }
     } else {
       copy[i] = { ...copy[i], [field]: value }
     }
@@ -55,7 +65,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
     const order: SaleOrder = {
       id: `so${Date.now()}`, orderNumber: `${companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
       customer: customer.name, customerId,
-      items: items.map((x) => ({ product:x.product, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
+      items: items.map((x) => ({ product:x.product, productId:x.productId||undefined, variantId:x.variantId||undefined, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
       subtotal: Math.round(subtotal),
       tax: Math.round(tax),
       total: Math.round(total),
@@ -121,6 +131,22 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
                     <option value="">-- Producto --</option>
                     {products.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                  {/* Variant selector — shown only when product has active variants */}
+                  {(() => {
+                    const p = products.find((x) => x.id === item.productId)
+                    const activeVars = p?.variants?.filter(v => v.isActive) ?? []
+                    if (activeVars.length === 0) return null
+                    return (
+                      <select className="input mt-1 text-xs" value={item.variantId}
+                        onChange={(e) => updateItem(i, 'variantId', e.target.value)}>
+                        <option value="">— Color / Acabado —</option>
+                        {activeVars.map(v => {
+                          const lbl = [v.attributes.color, v.attributes.acabado].filter(Boolean).join(' / ')
+                          return <option key={v.id} value={v.id}>{lbl}{v.priceOverride ? ` · ${v.priceOverride.toLocaleString('es-CO')}` : ''}</option>
+                        })}
+                      </select>
+                    )
+                  })()}
                 </div>
                 <div className="col-span-2">
                   {i === 0 && <label className="label">Cant.</label>}
