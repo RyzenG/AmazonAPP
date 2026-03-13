@@ -54,6 +54,17 @@ export interface SaleOrder {
   notes?: string
 }
 
+export interface CustomerActivity {
+  id: string
+  customerId: string
+  type: 'call' | 'email' | 'visit' | 'note' | 'whatsapp'
+  date: string
+  subject: string
+  notes?: string
+  done: boolean
+  createdAt: string
+}
+
 export interface Quotation {
   id: string; quoteNumber: string; customer: string; customerId: string
   items: { product: string; productId?: string; variantId?: string; qty: number; price: number; subtotal: number }[]
@@ -233,6 +244,16 @@ export const quotations: Quotation[] = [
     status:'rejected', validUntil:'2025-03-08', date:'2025-02-25',
     notes:'Cliente solicitó descuento mayor al 20%, no fue posible aplicar.',
   },
+]
+
+// ── Customer Activities ───────────────────────
+export const customerActivities: CustomerActivity[] = [
+  { id:'a1', customerId:'c1', type:'call',     date:'2025-03-10', subject:'Confirmar colores cotización COT-2025-001',       notes:'Prefiere el jarrón en negro mate. Confirmar plazo de entrega.', done:false, createdAt:'2025-03-10T10:30:00' },
+  { id:'a2', customerId:'c1', type:'email',    date:'2025-03-08', subject:'Envío cotización COT-2025-001',                    notes:'Cotización enviada por correo y WhatsApp.',                      done:true,  createdAt:'2025-03-08T09:15:00' },
+  { id:'a3', customerId:'c2', type:'whatsapp', date:'2025-03-07', subject:'Seguimiento pedido VTA-2025-002',                  notes:'Confirmar fecha entrega. Pendiente pago saldo.',                done:false, createdAt:'2025-03-07T14:00:00' },
+  { id:'a4', customerId:'c4', type:'visit',    date:'2025-03-04', subject:'Presentación colección primavera',                 notes:'Mostramos muestras nuevas. Interés en 3 referencias nuevas.',   done:true,  createdAt:'2025-03-04T11:00:00' },
+  { id:'a5', customerId:'c6', type:'note',     date:'2025-03-12', subject:'Confirmar medidas con decoradora del hotel',       notes:'La decoradora revisará dimensiones antes del viernes.',         done:false, createdAt:'2025-03-12T08:30:00' },
+  { id:'a6', customerId:'c5', type:'call',     date:'2025-03-01', subject:'Reactivar cliente — sin compras recientes',        notes:'Sin respuesta. Reintentar en 2 semanas.',                       done:true,  createdAt:'2025-03-01T16:00:00' },
 ]
 
 // ── Sales chart data (last 30 days) ───────────

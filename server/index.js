@@ -14,7 +14,8 @@ import recipesRouter        from './routes/recipes.js'
 import settingsRouter       from './routes/settings.js'
 import resetRouter          from './routes/reset.js'
 import auditLogRouter       from './routes/auditLog.js'
-import quotationsRouter     from './routes/quotations.js'
+import quotationsRouter          from './routes/quotations.js'
+import customerActivitiesRouter  from './routes/customerActivities.js'
 
 dotenv.config()
 
@@ -75,6 +76,16 @@ async function migrate() {
         converted_to_order_id TEXT DEFAULT '',
         created_at            TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS customer_activities (
+        id          TEXT PRIMARY KEY,
+        customer_id TEXT NOT NULL,
+        type        TEXT NOT NULL DEFAULT 'note',
+        date        DATE NOT NULL,
+        subject     TEXT NOT NULL DEFAULT '',
+        notes       TEXT DEFAULT '',
+        done        BOOLEAN DEFAULT FALSE,
+        created_at  TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,
@@ -132,6 +143,7 @@ app.use('/api/settings',          settingsRouter)
 app.use('/api/reset',             resetRouter)
 app.use('/api/audit',             auditLogRouter)
 app.use('/api/quotations',        quotationsRouter)
+app.use('/api/customer-activities', customerActivitiesRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

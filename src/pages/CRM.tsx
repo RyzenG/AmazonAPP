@@ -1,26 +1,50 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin, MessageCircle, Send, Pencil, Trash2, Download, FileSpreadsheet } from 'lucide-react'
+import {
+  Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin,
+  MessageCircle, Send, Pencil, Trash2, FileSpreadsheet,
+  PhoneCall, AtSign, Navigation, StickyNote, CheckCircle2, Circle,
+  FileText, ShoppingBag, Activity, Info, Clock,
+} from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { Customer } from '../data/mockData'
+import { Customer, CustomerActivity, Quotation } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 import * as XLSX from 'xlsx'
 
+// ── Constants ──────────────────────────────────────────────────────────────
+
 const SEG_BADGE: Record<string, string> = {
-  vip:'badge-purple', mayorista:'badge-blue', regular:'badge-gray',
+  vip: 'badge-purple', mayorista: 'badge-blue', regular: 'badge-gray',
 }
 const SEG_LABELS: Record<string, string> = {
-  vip:'VIP', mayorista:'Mayorista', regular:'Regular',
+  vip: 'VIP', mayorista: 'Mayorista', regular: 'Regular',
 }
+
+const ACTIVITY_META: Record<CustomerActivity['type'], { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  call:     { label: 'Llamada',  icon: PhoneCall,  color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-900/30' },
+  email:    { label: 'Email',    icon: AtSign,     color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-900/30' },
+  visit:    { label: 'Visita',   icon: Navigation, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30' },
+  note:     { label: 'Nota',     icon: StickyNote, color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-50 dark:bg-amber-900/30' },
+  whatsapp: { label: 'WhatsApp', icon: MessageCircle, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30' },
+}
+
+const QUOTE_STATUS_LABEL: Record<string, string> = {
+  draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'Rechazada', expired: 'Vencida',
+}
+const QUOTE_STATUS_BADGE: Record<string, string> = {
+  draft: 'badge-gray', sent: 'badge-blue', accepted: 'badge-green', rejected: 'badge-red', expired: 'badge-yellow',
+}
+
+// ── CustomerModal ──────────────────────────────────────────────────────────
 
 function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
   const { addCustomer, updateCustomer, customers } = useStore()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
-    code:`CLI-${String(customers.length + 1).padStart(4, '0')}`, name:'', company:'',
-    email:'', phone:'', city:'', segment:'regular', isActive:true,
-    totalPurchases:0, lastPurchase: new Date().toISOString().split('T')[0], notes:'',
+    code: `CLI-${String(customers.length + 1).padStart(4, '0')}`, name: '', company: '',
+    email: '', phone: '', city: '', segment: 'regular', isActive: true,
+    totalPurchases: 0, lastPurchase: new Date().toISOString().split('T')[0], notes: '',
   })
 
   const field = (k: keyof Customer, label: string, type = 'text') => (
@@ -48,12 +72,12 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
             <label className="label">Segmento</label>
             <select className="input" value={String(form.segment ?? 'regular')}
               onChange={(e) => setForm({ ...form, segment: e.target.value })}>
-              {['regular','mayorista','vip'].map((s) => <option key={s} value={s}>{SEG_LABELS[s]}</option>)}
+              {['regular', 'mayorista', 'vip'].map((s) => <option key={s} value={s}>{SEG_LABELS[s]}</option>)}
             </select>
           </div>
           <div className="col-span-2">
             <label className="label">Notas internas</label>
-            <textarea className="input resize-none" rows={3} placeholder="Observaciones, preferencias, historial relevante..."
+            <textarea className="input resize-none" rows={3} placeholder="Observaciones, preferencias..."
               value={String(form.notes ?? '')}
               onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
@@ -62,8 +86,8 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
           <button className="btn btn-secondary flex-1" onClick={onClose}>Cancelar</button>
           <button className="btn btn-primary flex-1" onClick={() => {
             if (!form.name) return
-            if (customer) { updateCustomer({ ...customer, ...form } as Customer) }
-            else { addCustomer({ ...(form as Customer), id:`c${Date.now()}` }) }
+            if (customer) updateCustomer({ ...customer, ...form } as Customer)
+            else addCustomer({ ...(form as Customer), id: `c${Date.now()}` })
             onClose()
           }}>
             {customer ? 'Actualizar' : 'Crear cliente'}
@@ -74,20 +98,28 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
   )
 }
 
-function CustomerCard({ customer, totalPurchases, onClick, onEdit, onDelete, canEdit, canDelete }: {
-  customer: Customer; totalPurchases: number; onClick: () => void
-  onEdit: () => void; onDelete: () => void
-  canEdit: boolean; canDelete: boolean
+// ── CustomerCard ───────────────────────────────────────────────────────────
+
+function CustomerCard({ customer, totalPurchases, pendingActivities, onClick, onEdit, onDelete, canEdit, canDelete }: {
+  customer: Customer; totalPurchases: number; pendingActivities: number; onClick: () => void
+  onEdit: () => void; onDelete: () => void; canEdit: boolean; canDelete: boolean
 }) {
   return (
     <div className="card p-5 hover:border-blue-200 dark:hover:border-blue-700 border border-transparent transition-all cursor-pointer"
       onClick={onClick}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-sm font-bold">
-              {customer.name.split(' ').map((n) => n[0]).join('').slice(0,2).toUpperCase()}
-            </span>
+          <div className="relative">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-sm font-bold">
+                {customer.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            {pendingActivities > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {pendingActivities}
+              </span>
+            )}
           </div>
           <div>
             <h3 className="font-semibold text-slate-800 dark:text-white text-sm">{customer.name}</h3>
@@ -102,7 +134,6 @@ function CustomerCard({ customer, totalPurchases, onClick, onEdit, onDelete, can
           <span className="truncate flex-1">{customer.email}</span>
           {customer.email && (
             <a href={`mailto:${customer.email}`} onClick={(e) => e.stopPropagation()}
-              title="Enviar email"
               className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-500 hover:text-blue-600 transition-colors">
               <Send size={11} />
             </a>
@@ -112,10 +143,8 @@ function CustomerCard({ customer, totalPurchases, onClick, onEdit, onDelete, can
           <Phone size={11} />
           <span className="flex-1">{customer.phone}</span>
           {customer.phone && (
-            <a href={`https://wa.me/${customer.phone.replace(/\D/g,'')}`}
-              target="_blank" rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              title="Abrir en WhatsApp"
+            <a href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`}
+              target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
               className="p-1 rounded hover:bg-green-50 dark:hover:bg-green-900/30 text-green-500 hover:text-green-600 transition-colors">
               <MessageCircle size={11} />
             </a>
@@ -149,8 +178,384 @@ function CustomerCard({ customer, totalPurchases, onClick, onEdit, onDelete, can
   )
 }
 
+// ── AddActivityForm ────────────────────────────────────────────────────────
+
+function AddActivityForm({ customerId, onDone }: { customerId: string; onDone: () => void }) {
+  const { addActivity } = useStore()
+  const today = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState<{
+    type: CustomerActivity['type']; date: string; subject: string; notes: string
+  }>({ type: 'call', date: today, subject: '', notes: '' })
+
+  const handleSave = async () => {
+    if (!form.subject.trim()) return
+    await addActivity({
+      id: `a${Date.now()}`,
+      customerId,
+      type: form.type,
+      date: form.date,
+      subject: form.subject.trim(),
+      notes: form.notes.trim() || undefined,
+      done: false,
+      createdAt: new Date().toISOString(),
+    })
+    onDone()
+  }
+
+  return (
+    <div className="bg-slate-50 dark:bg-gray-700/50 rounded-xl p-4 border border-slate-200 dark:border-gray-600 space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        {(Object.keys(ACTIVITY_META) as CustomerActivity['type'][]).map((t) => {
+          const meta = ACTIVITY_META[t]
+          const Icon = meta.icon
+          return (
+            <button key={t} onClick={() => setForm({ ...form, type: t })}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                form.type === t
+                  ? `${meta.bg} ${meta.color} border-current`
+                  : 'bg-white dark:bg-gray-700 text-slate-500 dark:text-gray-400 border-slate-200 dark:border-gray-600'
+              }`}>
+              <Icon size={12} /> {meta.label}
+            </button>
+          )
+        })}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <input className="input text-sm" placeholder="Asunto *" value={form.subject}
+            onChange={(e) => setForm({ ...form, subject: e.target.value })} />
+        </div>
+        <div>
+          <input className="input text-sm" type="date" value={form.date}
+            onChange={(e) => setForm({ ...form, date: e.target.value })} />
+        </div>
+        <div>
+          <textarea className="input text-sm resize-none" rows={1} placeholder="Notas (opcional)"
+            value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button className="btn btn-sm btn-secondary" onClick={onDone}>Cancelar</button>
+        <button className="btn btn-sm btn-primary" onClick={handleSave}>Guardar seguimiento</button>
+      </div>
+    </div>
+  )
+}
+
+// ── CustomerDrawer ─────────────────────────────────────────────────────────
+
+type DrawerTab = 'info' | 'history' | 'quotations' | 'activities'
+
+function CustomerDrawer({ customer, onClose, onEdit, onDelete, canEdit, canDelete }: {
+  customer: Customer
+  onClose: () => void
+  onEdit: () => void
+  onDelete: () => void
+  canEdit: boolean
+  canDelete: boolean
+}) {
+  const { saleOrders, quotations, activities, updateActivity, deleteActivity } = useStore()
+  const [tab, setTab] = useState<DrawerTab>('info')
+  const [showAddActivity, setShowAddActivity] = useState(false)
+
+  const customerStats = useMemo(() => {
+    let total = 0; let lastDate: string | null = null
+    for (const o of saleOrders.filter((o) => o.customerId === customer.id)) {
+      total += o.total
+      if (!lastDate || o.date > lastDate) lastDate = o.date
+    }
+    const orders = saleOrders.filter((o) => o.customerId === customer.id)
+    return { total, lastDate, orderCount: orders.length, pendingBalance: orders.filter((o) => o.paymentStatus !== 'paid').reduce((s, o) => s + o.total, 0) }
+  }, [saleOrders, customer.id])
+
+  const customerQuotes = useMemo(() =>
+    quotations.filter((q) => q.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date)),
+    [quotations, customer.id]
+  )
+
+  const customerActivities = useMemo(() =>
+    activities.filter((a) => a.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date)),
+    [activities, customer.id]
+  )
+
+  const pendingCount = customerActivities.filter((a) => !a.done).length
+
+  const tabs: { id: DrawerTab; label: string; icon: React.ElementType; count?: number }[] = [
+    { id: 'info',        label: 'Info',         icon: Info },
+    { id: 'history',     label: 'Compras',       icon: ShoppingBag,   count: customerStats.orderCount },
+    { id: 'quotations',  label: 'Cotizaciones',  icon: FileText,      count: customerQuotes.length },
+    { id: 'activities',  label: 'Seguimientos',  icon: Activity,      count: pendingCount || undefined },
+  ]
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-end z-50">
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md h-full overflow-y-auto animate-slideIn flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-sm font-bold">
+                {customer.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-slate-800 dark:text-white truncate">{customer.name}</h3>
+              <span className={`badge ${SEG_BADGE[customer.segment]} text-xs`}>{SEG_LABELS[customer.segment]}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+            {canEdit && (
+              <button className="btn btn-sm btn-secondary flex items-center gap-1" onClick={onEdit}>
+                <Pencil size={12} /> Editar
+              </button>
+            )}
+            {canDelete && (
+              <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
+                onClick={onDelete}>
+                <Trash2 size={12} />
+              </button>
+            )}
+            <button onClick={onClose}><X size={18} className="text-slate-400" /></button>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-gray-700 border-b border-slate-100 dark:border-gray-700">
+          {[
+            { label: 'Total compras',  value: formatCOP(customerStats.total) },
+            { label: 'Pedidos',        value: String(customerStats.orderCount) },
+            { label: 'Saldo pend.',    value: customerStats.pendingBalance > 0 ? formatCOP(customerStats.pendingBalance) : '—' },
+          ].map((s) => (
+            <div key={s.label} className="px-4 py-3 text-center">
+              <p className="text-xs text-slate-400 dark:text-gray-500">{s.label}</p>
+              <p className="font-bold text-slate-800 dark:text-white text-sm">{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-100 dark:border-gray-700 sticky top-[73px] bg-white dark:bg-gray-800 z-10">
+          {tabs.map(({ id, label, icon: Icon, count }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                tab === id
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+              }`}>
+              <Icon size={13} />
+              {label}
+              {count !== undefined && count > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  id === 'activities' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300'
+                }`}>{count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-5 flex-1 space-y-5">
+
+          {/* ── Info tab ── */}
+          {tab === 'info' && (
+            <>
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Contacto</h4>
+                {/* Email */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Mail size={14} className="text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Email</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium truncate">{customer.email || '—'}</p>
+                  </div>
+                  {customer.email && (
+                    <a href={`mailto:${customer.email}`}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 text-xs font-medium transition-colors flex-shrink-0">
+                      <Send size={12} /> Email
+                    </a>
+                  )}
+                </div>
+                {/* Phone */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Phone size={14} className="text-slate-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Teléfono</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium">{customer.phone || '—'}</p>
+                  </div>
+                  {customer.phone && (
+                    <a href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 text-xs font-medium transition-colors flex-shrink-0">
+                      <MessageCircle size={12} /> WhatsApp
+                    </a>
+                  )}
+                </div>
+                {/* City */}
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <MapPin size={14} className="text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Ciudad</p>
+                    <p className="text-slate-700 dark:text-gray-200 font-medium">{customer.city || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Last purchase */}
+              {customerStats.lastDate && (
+                <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-gray-700 rounded-xl p-3">
+                  <Clock size={14} className="text-slate-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-400 dark:text-gray-500">Última compra</p>
+                    <p className="font-medium text-slate-700 dark:text-gray-200">
+                      {new Date(customerStats.lastDate + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {customer.notes && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
+                  <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Notas internas</h4>
+                  <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-line">{customer.notes}</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── History tab ── */}
+          {tab === 'history' && (
+            <div>
+              {saleOrders.filter((o) => o.customerId === customer.id).length === 0
+                ? <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-8">Sin compras registradas</p>
+                : saleOrders
+                    .filter((o) => o.customerId === customer.id)
+                    .sort((a, b) => b.date.localeCompare(a.date))
+                    .map((o) => (
+                      <div key={o.id} className="flex items-start justify-between py-3 border-b border-slate-100 dark:border-gray-700 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-700 dark:text-gray-200">{o.orderNumber}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-500">{new Date(o.date + 'T12:00:00').toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' })}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{o.items.map((i) => i.product).join(', ')}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
+                          <span className={`badge ${o.paymentStatus === 'paid' ? 'badge-green' : 'badge-yellow'} text-xs`}>
+                            {o.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+              }
+            </div>
+          )}
+
+          {/* ── Quotations tab ── */}
+          {tab === 'quotations' && (
+            <div>
+              {customerQuotes.length === 0
+                ? <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-8">Sin cotizaciones</p>
+                : customerQuotes.map((q: Quotation) => {
+                    const today = new Date().toISOString().split('T')[0]
+                    const effStatus = (q.status === 'draft' || q.status === 'sent') && q.validUntil < today ? 'expired' : q.status
+                    return (
+                      <div key={q.id} className="flex items-start justify-between py-3 border-b border-slate-100 dark:border-gray-700 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-700 dark:text-gray-200">{q.quoteNumber}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-500">{new Date(q.date + 'T12:00:00').toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' })}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-500">Válida hasta: {q.validUntil}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-3">
+                          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(q.total)}</p>
+                          <span className={`badge ${QUOTE_STATUS_BADGE[effStatus]} text-xs`}>{QUOTE_STATUS_LABEL[effStatus]}</span>
+                        </div>
+                      </div>
+                    )
+                  })
+              }
+            </div>
+          )}
+
+          {/* ── Activities tab ── */}
+          {tab === 'activities' && (
+            <div className="space-y-4">
+              {!showAddActivity
+                ? (
+                  <button className="btn btn-primary w-full flex items-center gap-2 justify-center"
+                    onClick={() => setShowAddActivity(true)}>
+                    <Plus size={15} /> Agregar seguimiento
+                  </button>
+                )
+                : (
+                  <AddActivityForm customerId={customer.id} onDone={() => setShowAddActivity(false)} />
+                )
+              }
+
+              {customerActivities.length === 0
+                ? <p className="text-sm text-slate-400 dark:text-gray-500 text-center py-8">Sin seguimientos. ¡Agrega el primero!</p>
+                : (
+                  <div className="space-y-2">
+                    {customerActivities.map((act) => {
+                      const meta = ACTIVITY_META[act.type]
+                      const Icon = meta.icon
+                      return (
+                        <div key={act.id} className={`flex gap-3 p-3 rounded-xl border transition-all ${
+                          act.done
+                            ? 'bg-slate-50 dark:bg-gray-700/40 border-slate-100 dark:border-gray-700 opacity-60'
+                            : 'bg-white dark:bg-gray-800 border-slate-200 dark:border-gray-600'
+                        }`}>
+                          <button
+                            onClick={() => updateActivity({ ...act, done: !act.done })}
+                            className="flex-shrink-0 mt-0.5"
+                            title={act.done ? 'Marcar pendiente' : 'Marcar completado'}>
+                            {act.done
+                              ? <CheckCircle2 size={18} className="text-emerald-500" />
+                              : <Circle size={18} className="text-slate-300 dark:text-gray-600 hover:text-emerald-400 transition-colors" />
+                            }
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className={`flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded ${meta.bg} ${meta.color}`}>
+                                <Icon size={10} /> {meta.label}
+                              </span>
+                              <span className="text-xs text-slate-400 dark:text-gray-500">{act.date}</span>
+                            </div>
+                            <p className={`text-sm font-medium ${act.done ? 'line-through text-slate-400 dark:text-gray-500' : 'text-slate-700 dark:text-gray-200'}`}>
+                              {act.subject}
+                            </p>
+                            {act.notes && (
+                              <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5 whitespace-pre-line">{act.notes}</p>
+                            )}
+                          </div>
+                          <button onClick={() => deleteActivity(act.id)}
+                            className="flex-shrink-0 text-slate-300 dark:text-gray-600 hover:text-red-400 transition-colors mt-0.5">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              }
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main CRM ───────────────────────────────────────────────────────────────
+
 export default function CRM() {
-  const { customers, saleOrders, deleteCustomer } = useStore()
+  const { customers, saleOrders, activities, deleteCustomer } = useStore()
   const { canEdit, canDelete } = usePermissions()
   const [search, setSearch]       = useState('')
   const [segFilter, setSeg]       = useState('all')
@@ -162,7 +567,6 @@ export default function CRM() {
   const [page, setPage]                 = useState(1)
   const PAGE_SIZE = 12
 
-  // Compute totals and last purchase date from actual saleOrders
   const customerStats = useMemo(() => {
     const map: Record<string, { total: number; lastDate: string | null }> = {}
     for (const order of saleOrders) {
@@ -174,6 +578,16 @@ export default function CRM() {
     }
     return map
   }, [saleOrders])
+
+  const pendingActivitiesPerCustomer = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of activities) {
+      if (!a.done) map[a.customerId] = (map[a.customerId] ?? 0) + 1
+    }
+    return map
+  }, [activities])
+
+  const totalPending = Object.values(pendingActivitiesPerCustomer).reduce((s, n) => s + n, 0)
 
   const filtered = customers.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -214,8 +628,7 @@ export default function CRM() {
           <p className="text-slate-500 dark:text-gray-400 text-sm">Base de clientes y seguimiento</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="btn btn-secondary flex items-center gap-2" onClick={handleExportExcel}
-            title="Exportar a Excel">
+          <button className="btn btn-secondary flex items-center gap-2" onClick={handleExportExcel}>
             <FileSpreadsheet size={15} /> Exportar
           </button>
           <button className="btn btn-primary" onClick={() => { setEditCustomer(undefined); setShowModal(true) }}>
@@ -224,13 +637,13 @@ export default function CRM() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* KPI Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label:'Total clientes', value:customers.length, icon:Users, color:'bg-blue-600' },
-          { label:'Clientes VIP',   value:vipCount,         icon:Star,  color:'bg-violet-600' },
-          { label:'Mayoristas',     value:customers.filter(c=>c.segment==='mayorista').length, icon:TrendingUp, color:'bg-teal-600' },
-          { label:'Revenue total',  value: formatCOP(totalRevenue), icon:TrendingUp, color:'bg-emerald-600' },
+          { label: 'Total clientes',        value: customers.length,                                                          icon: Users,     color: 'bg-blue-600' },
+          { label: 'Clientes VIP',          value: vipCount,                                                                  icon: Star,      color: 'bg-violet-600' },
+          { label: 'Seguimientos pend.',    value: totalPending,                                                              icon: Activity,  color: 'bg-amber-500' },
+          { label: 'Revenue total',         value: formatCOP(totalRevenue),                                                   icon: TrendingUp,color: 'bg-emerald-600' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.color}`}>
@@ -252,7 +665,7 @@ export default function CRM() {
             onChange={(e) => { setSearch(e.target.value); setPage(1) }} />
         </div>
         <div className="flex gap-2">
-          {[['all','Todos'],['regular','Regular'],['mayorista','Mayorista'],['vip','VIP']].map(([v,l]) => (
+          {[['all', 'Todos'], ['regular', 'Regular'], ['mayorista', 'Mayorista'], ['vip', 'VIP']].map(([v, l]) => (
             <button key={v} onClick={() => { setSeg(v); setPage(1) }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                 segFilter === v
@@ -268,6 +681,7 @@ export default function CRM() {
         {paginated.map((c) => (
           <CustomerCard key={c.id} customer={c}
             totalPurchases={customerStats[c.id]?.total ?? 0}
+            pendingActivities={pendingActivitiesPerCustomer[c.id] ?? 0}
             canEdit={canEdit('customers')} canDelete={canDelete('customers')}
             onClick={() => setSelected(c)}
             onEdit={() => { setEditCustomer(c); setShowModal(true) }}
@@ -283,143 +697,16 @@ export default function CRM() {
       </div>
       <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onPage={setPage} />
 
-      {/* Customer Detail Drawer */}
+      {/* Drawer */}
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-end z-50">
-          <div className="bg-white dark:bg-gray-800 w-full max-w-md h-full overflow-y-auto animate-slideIn">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
-              <h3 className="font-semibold dark:text-white">Detalle del cliente</h3>
-              <div className="flex items-center gap-2">
-                {canEdit('customers') && (
-                  <button className="btn btn-sm btn-secondary flex items-center gap-1"
-                    onClick={() => { setEditCustomer(selected); setShowModal(true) }}>
-                    <Pencil size={12} /> Editar
-                  </button>
-                )}
-                {canDelete('customers') && (
-                  <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
-                    onClick={() => { setDeleteTarget(selected); setSelected(null) }}>
-                    <Trash2 size={12} />
-                  </button>
-                )}
-                <button onClick={() => setSelected(null)}><X size={18} className="text-slate-400" /></button>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              {/* Avatar & info */}
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                  <span className="text-white text-xl font-bold">
-                    {selected.name.split(' ').map((n) => n[0]).join('').slice(0,2).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-white">{selected.name}</h2>
-                  {selected.company && <p className="text-slate-500 dark:text-gray-400">{selected.company}</p>}
-                  <span className={`badge ${SEG_BADGE[selected.segment]} mt-1`}>{SEG_LABELS[selected.segment]}</span>
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Contacto</h4>
-                {/* Email */}
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
-                    <Mail size={14} className="text-slate-400 dark:text-gray-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-400 dark:text-gray-500">Email</p>
-                    <p className="text-slate-700 dark:text-gray-200 font-medium truncate">{selected.email}</p>
-                  </div>
-                  {selected.email && (
-                    <a href={`mailto:${selected.email}`}
-                      title="Enviar email"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-medium transition-colors flex-shrink-0">
-                      <Send size={12} /> Email
-                    </a>
-                  )}
-                </div>
-                {/* Teléfono */}
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
-                    <Phone size={14} className="text-slate-400 dark:text-gray-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-400 dark:text-gray-500">Teléfono</p>
-                    <p className="text-slate-700 dark:text-gray-200 font-medium">{selected.phone}</p>
-                  </div>
-                  {selected.phone && (
-                    <a href={`https://wa.me/${selected.phone.replace(/\D/g,'')}`}
-                      target="_blank" rel="noopener noreferrer"
-                      title="Abrir en WhatsApp"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 text-xs font-medium transition-colors flex-shrink-0">
-                      <MessageCircle size={12} /> WhatsApp
-                    </a>
-                  )}
-                </div>
-                {/* Ciudad */}
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-gray-700 flex items-center justify-center">
-                    <MapPin size={14} className="text-slate-400 dark:text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 dark:text-gray-500">Ciudad</p>
-                    <p className="text-slate-700 dark:text-gray-200 font-medium">{selected.city}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Purchases stats */}
-              <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-slate-400 dark:text-gray-400">Total compras</p>
-                  <p className="text-2xl font-bold text-slate-800 dark:text-white">
-                    {formatCOP(customerStats[selected.id]?.total ?? 0)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 dark:text-gray-400">Última compra</p>
-                  <p className="font-bold text-slate-700 dark:text-gray-200">
-                    {customerStats[selected.id]?.lastDate
-                      ? new Date(customerStats[selected.id].lastDate! + 'T12:00:00').toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' })
-                      : '—'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Notes */}
-              {selected.notes && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
-                  <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Notas internas</h4>
-                  <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-line">{selected.notes}</p>
-                </div>
-              )}
-
-              {/* Purchase history */}
-              <div>
-                <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-3">Historial de compras</h4>
-                {saleOrders.filter((o) => o.customerId === selected.id).map((o) => (
-                  <div key={o.id} className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-gray-700">
-                    <div>
-                      <p className="text-sm font-medium text-slate-700 dark:text-gray-200">{o.orderNumber}</p>
-                      <p className="text-xs text-slate-400 dark:text-gray-500">{o.date}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
-                      <span className={`badge ${o.paymentStatus === 'paid' ? 'badge-green' : 'badge-yellow'} text-xs`}>
-                        {o.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {saleOrders.filter((o) => o.customerId === selected.id).length === 0 && (
-                  <p className="text-sm text-slate-400 dark:text-gray-500">Sin compras registradas</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <CustomerDrawer
+          customer={selected}
+          onClose={() => setSelected(null)}
+          onEdit={() => { setEditCustomer(selected); setShowModal(true) }}
+          onDelete={() => { setDeleteTarget(selected); setSelected(null) }}
+          canEdit={canEdit('customers')}
+          canDelete={canDelete('customers')}
+        />
       )}
 
       {showModal && <CustomerModal customer={editCustomer} onClose={() => { setShowModal(false); setEditCustomer(undefined) }} />}

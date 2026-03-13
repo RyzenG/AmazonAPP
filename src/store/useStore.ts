@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import {
-  Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation,
+  Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation, CustomerActivity,
 } from '../data/mockData'
 
 export interface Notification {
@@ -55,6 +55,7 @@ interface AppState {
   saleOrders:       SaleOrder[]
   recipes:          Recipe[]
   quotations:       Quotation[]
+  activities:       CustomerActivity[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -101,6 +102,9 @@ interface AppState {
   updateQuotation:  (q: Quotation) => Promise<void>
   deleteQuotation:  (id: string)   => Promise<void>
   convertQuotation: (id: string)   => Promise<void>
+  addActivity:      (a: CustomerActivity) => Promise<void>
+  updateActivity:   (a: CustomerActivity) => Promise<void>
+  deleteActivity:   (id: string)          => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -200,6 +204,7 @@ export const useStore = create<AppState>((set, get) => ({
   saleOrders:       [],
   recipes:          [],
   quotations:       [],
+  activities:       [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -212,7 +217,7 @@ export const useStore = create<AppState>((set, get) => ({
   loadAllData: async () => {
     if (get().dataLoaded) return
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -222,6 +227,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<Recipe[]>('/api/recipes'),
           apiFetch<Partial<CompanySettings>>('/api/settings'),
           apiFetch<Quotation[]>('/api/quotations'),
+          apiFetch<CustomerActivity[]>('/api/customer-activities'),
         ])
 
       const companySettings: CompanySettings = {
@@ -251,7 +257,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, companySettings, dataLoaded: true })
     } catch (e) {
       console.error('No se pudo conectar con el servidor:', e)
     }
@@ -454,6 +460,19 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  addActivity: async (activity) => {
+    await apiFetch('/api/customer-activities', { method: 'POST', body: JSON.stringify(activity) })
+    set((s) => ({ activities: [activity, ...s.activities] }))
+  },
+  updateActivity: async (activity) => {
+    await apiFetch(`/api/customer-activities/${activity.id}`, { method: 'PUT', body: JSON.stringify(activity) })
+    set((s) => ({ activities: s.activities.map((x) => x.id === activity.id ? activity : x) }))
+  },
+  deleteActivity: async (id) => {
+    await apiFetch(`/api/customer-activities/${id}`, { method: 'DELETE' })
+    set((s) => ({ activities: s.activities.filter((x) => x.id !== id) }))
+  },
+
   // ── Factory reset ──────────────────────────────────────────────────────────
   factoryReset: async () => {
     await apiFetch('/api/reset', { method: 'DELETE' })
@@ -464,7 +483,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Reset store to blank state (keep page alive, logout will redirect)
     set({
       supplies: [], products: [], productionOrders: [],
-      customers: [], saleOrders: [], recipes: [], quotations: [],
+      customers: [], saleOrders: [], recipes: [], quotations: [], activities: [],
       companySettings: defaultCompanySettings,
       notifications: [],
       dataLoaded: false,
