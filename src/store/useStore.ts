@@ -100,9 +100,10 @@ interface AppState {
   addCustomer:  (c: Customer)  => Promise<void>
   updateCustomer:(c: Customer) => Promise<void>
   deleteCustomer:(id: string)  => Promise<void>
-  addSaleOrder: (o: SaleOrder) => Promise<void>
-  updateSaleOrder: (o: SaleOrder) => Promise<void>
-  deleteSaleOrder: (id: string) => Promise<void>
+  addSaleOrder:      (o: SaleOrder) => Promise<void>
+  updateSaleOrder:   (o: SaleOrder) => Promise<void>
+  deleteSaleOrder:   (id: string)   => Promise<void>
+  generateInvoice:   (id: string)   => Promise<SaleOrder>
   addProductionOrder: (o: ProductionOrder) => Promise<void>
   deleteProductionOrder:(id: string) => Promise<void>
   addRecipe:    (r: Recipe)  => Promise<void>
@@ -426,6 +427,23 @@ export const useStore = create<AppState>((set, get) => ({
   deleteSaleOrder: async (id) => {
     await apiFetch(`/api/sale-orders/${id}`, { method: 'DELETE' })
     set((s) => ({ saleOrders: s.saleOrders.filter((x) => x.id !== id) }))
+  },
+  generateInvoice: async (id) => {
+    const s = get()
+    const order = s.saleOrders.find((x) => x.id === id)
+    if (!order) throw new Error('Orden no encontrada')
+    // If already has invoice number, return as-is
+    if (order.invoiceNumber) return order
+    // Sequential number = existing invoices + 1
+    const existing = s.saleOrders.filter((x) => x.invoiceNumber).length
+    const year     = new Date().getFullYear()
+    const prefix   = s.companySettings.invoicePrefix?.replace('VTA', 'FAC') || 'FAC'
+    const invoiceNumber = `${prefix}-${year}-${String(existing + 1).padStart(4, '0')}`
+    const invoiceDate   = new Date().toISOString().split('T')[0]
+    const updated: SaleOrder = { ...order, invoiceNumber, invoiceDate }
+    await apiFetch(`/api/sale-orders/${id}`, { method: 'PUT', body: JSON.stringify(updated) })
+    set((s2) => ({ saleOrders: s2.saleOrders.map((x) => x.id === id ? updated : x) }))
+    return updated
   },
 
   addProductionOrder: async (order) => {

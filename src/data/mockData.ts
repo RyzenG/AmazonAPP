@@ -52,6 +52,9 @@ export interface SaleOrder {
   subtotal: number; tax: number; total: number; status: string
   paymentStatus: string; paymentMethod: string; date: string; deliveryDate?: string
   notes?: string
+  // Invoice fields
+  invoiceNumber?: string   // e.g. FAC-2025-0001
+  invoiceDate?:   string   // ISO date when invoice was generated
 }
 
 export interface PurchaseOrderItem {

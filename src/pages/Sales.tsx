@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle, Receipt, Loader2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
+import FacturaModal from '../components/InvoiceModal'
 import { formatCOP } from '../utils/currency'
 
 const STATUS_BADGE: Record<string, string> = {
@@ -655,7 +656,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 }
 
 export default function Sales() {
-  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, companySettings } = useStore()
+  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, generateInvoice, companySettings } = useStore()
   const { canDelete } = usePermissions()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch]         = useState('')
@@ -663,6 +664,8 @@ export default function Sales() {
   const [showModal, setShowModal]   = useState(false)
   const [detail, setDetail]         = useState<SaleOrder | null>(null)
   const [invoice, setInvoice]       = useState<SaleOrder | null>(null)
+  const [invoiceOrder, setInvoiceOrder] = useState<SaleOrder | null>(null)
+  const [generatingInv, setGeneratingInv] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleOrder | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [duplicated, setDuplicated]     = useState<string | null>(null)
@@ -671,6 +674,17 @@ export default function Sales() {
   const [payFilter, setPayFilter]       = useState('all')
   const [page, setPage]                 = useState(1)
   const PAGE_SIZE = 20
+
+  // Open invoice modal (generate if not yet generated)
+  const handleInvoice = async (order: SaleOrder) => {
+    setGeneratingInv(order.id)
+    try {
+      const updated = await generateInvoice(order.id)
+      setInvoiceOrder(updated)
+    } finally {
+      setGeneratingInv(null)
+    }
+  }
 
   // Deep link: ?open=ID → auto-open the sale order detail panel
   useEffect(() => {
@@ -698,8 +712,10 @@ export default function Sales() {
   }
 
   const filtered = saleOrders.filter((o) => {
-    const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
-                        (o.customer ?? '').toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase()
+    const matchSearch = (o.orderNumber ?? '').toLowerCase().includes(q) ||
+                        (o.customer ?? '').toLowerCase().includes(q) ||
+                        (o.invoiceNumber ?? '').toLowerCase().includes(q)
     const matchStatus = statusFilter === 'all' || o.status === statusFilter
     const matchPay    = payFilter === 'all' || o.paymentStatus === payFilter
     const matchFrom   = !dateFrom || o.date >= dateFrom
@@ -810,7 +826,12 @@ export default function Sales() {
           <tbody>
             {paginated.map((o) => (
               <tr key={o.id} className="table-row cursor-pointer" onClick={() => setDetail(o)}>
-                <td className="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
+                <td className="px-4 py-3">
+                  <div className="font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</div>
+                  {o.invoiceNumber && (
+                    <div className="font-mono text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">{o.invoiceNumber}</div>
+                  )}
+                </td>
                 <td className="px-4 py-3 font-medium text-slate-800 dark:text-gray-200">{o.customer}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-gray-400 text-xs">{o.items.length} ítem(s)</td>
                 <td className="px-4 py-3 font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</td>
@@ -828,8 +849,24 @@ export default function Sales() {
                       </button>
                     )}
                     <button className="btn btn-sm flex items-center gap-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
-                      onClick={() => setInvoice(o)} title="Ver factura">
+                      onClick={() => setInvoice(o)} title="Ver recibo de pedido">
                       <FileText size={12} />
+                    </button>
+                    <button
+                      className={`btn btn-sm flex items-center gap-1.5 ${
+                        o.invoiceNumber
+                          ? 'text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700 dark:text-emerald-400'
+                          : 'text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 border border-violet-200 dark:border-violet-800'
+                      }`}
+                      onClick={() => handleInvoice(o)}
+                      disabled={generatingInv === o.id}
+                      title={o.invoiceNumber ? `Factura ${o.invoiceNumber}` : 'Generar factura'}
+                    >
+                      {generatingInv === o.id
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Receipt size={12} />
+                      }
+                      {o.invoiceNumber ? o.invoiceNumber.split('-').pop() : 'FAC'}
                     </button>
                     <button className="btn btn-sm flex items-center gap-1 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
                       onClick={() => handleDuplicate(o)} title="Duplicar orden">
@@ -869,6 +906,7 @@ export default function Sales() {
       {showModal && <NewSaleModal onClose={() => setShowModal(false)} />}
       {detail    && <OrderDetail order={detail} onClose={() => setDetail(null)} onInvoice={() => { setInvoice(detail); setDetail(null) }} />}
       {invoice   && <InvoiceModal order={invoice} onClose={() => setInvoice(null)} />}
+      {invoiceOrder && <FacturaModal order={invoiceOrder} settings={companySettings} onClose={() => setInvoiceOrder(null)} />}
       {deleteTarget && (
         <ConfirmDelete
           name={`${deleteTarget.orderNumber} — ${deleteTarget.customer}`}
