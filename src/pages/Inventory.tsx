@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
@@ -143,6 +144,7 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
 export default function Inventory() {
   const { supplies, deleteSupply } = useStore()
   const { canEdit, canDelete } = usePermissions()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch]           = useState('')
   const [catFilter, setCatFilter]     = useState('Todos')
   const [movSupply, setMovSupply]     = useState<Supply | null>(null)
@@ -152,6 +154,18 @@ export default function Inventory() {
   const [deleting, setDeleting]         = useState(false)
   const [page, setPage]                 = useState(1)
   const PAGE_SIZE = 20
+
+  // Deep link: ?open=ID → open the supply edit modal
+  useEffect(() => {
+    const id = searchParams.get('open')
+    if (!id || supplies.length === 0) return
+    const supply = supplies.find((s) => s.id === id)
+    if (supply) {
+      setEditSupply(supply)
+      setShowModal(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, supplies])
 
   const categories = ['Todos', ...Array.from(new Set(supplies.map((s) => s.category)))]
   const filtered   = supplies.filter((s) => {

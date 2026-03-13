@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle } from 'lucide-react'
@@ -656,6 +657,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 export default function Sales() {
   const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, companySettings } = useStore()
   const { canDelete } = usePermissions()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState('all')
   const [showModal, setShowModal]   = useState(false)
@@ -669,6 +671,17 @@ export default function Sales() {
   const [payFilter, setPayFilter]       = useState('all')
   const [page, setPage]                 = useState(1)
   const PAGE_SIZE = 20
+
+  // Deep link: ?open=ID → auto-open the sale order detail panel
+  useEffect(() => {
+    const id = searchParams.get('open')
+    if (!id || saleOrders.length === 0) return
+    const order = saleOrders.find((o) => o.id === id)
+    if (order) {
+      setDetail(order)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, saleOrders])
 
   const handleDuplicate = (o: SaleOrder) => {
     const newOrder: SaleOrder = {

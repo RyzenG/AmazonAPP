@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import { useStore } from '../../store/useStore'
 import { usePushNotifications } from '../../hooks/usePushNotifications'
+import { useSessionTimeout }    from '../../hooks/useSessionTimeout'
 
 const titles: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -19,6 +20,7 @@ export default function Layout() {
   const { sidebarOpen } = useStore()
   const { pathname } = useLocation()
   usePushNotifications()
+  useSessionTimeout()
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex">

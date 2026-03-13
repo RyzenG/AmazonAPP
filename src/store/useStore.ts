@@ -71,6 +71,7 @@ interface AppState {
   // Auth
   isAuthenticated: boolean
   user: AuthUser | null
+  lastActivity: number
   // Notifications
   notifications: Notification[]
   // Actions – data loading
@@ -79,8 +80,9 @@ interface AppState {
   setSidebarOpen: (v: boolean) => void
   toggleDarkMode: () => void
   // Actions – auth
-  login:  (user: AuthUser) => void
-  logout: () => void
+  login:        (user: AuthUser) => void
+  logout:       () => void
+  touchSession: () => void
   // Actions – notifications
   addNotification:  (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
   checkAlerts:      () => void
@@ -223,6 +225,7 @@ export const useStore = create<AppState>((set, get) => ({
   dataLoaded:       false,
   isAuthenticated:  initialAuth.isAuthenticated,
   user:             initialAuth.user,
+  lastActivity:     Date.now(),
   notifications:    initialNotifications,
 
   // ── Load all data from API ─────────────────────────────────────────────────
@@ -297,13 +300,15 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Auth ───────────────────────────────────────────────────────────────────
   login: (user) => {
     localStorage.setItem('erp_auth', JSON.stringify(user))
-    set({ isAuthenticated: true, user })
+    set({ isAuthenticated: true, user, lastActivity: Date.now() })
   },
 
   logout: () => {
     localStorage.removeItem('erp_auth')
-    set({ isAuthenticated: false, user: null, dataLoaded: false })
+    set({ isAuthenticated: false, user: null, dataLoaded: false, lastActivity: 0 })
   },
+
+  touchSession: () => set({ lastActivity: Date.now() }),
 
   // ── Notifications ──────────────────────────────────────────────────────────
   addNotification: (n) =>
@@ -552,7 +557,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const sup of s.supplies) {
       if (sup.stock <= sup.minStock) {
         push({
-          type: 'warning', category: 'inventory', link: '/inventory',
+          type: 'warning', category: 'inventory', link: `/inventory?open=${sup.id}`,
           message: `Stock bajo: ${sup.name} — ${sup.stock} ${sup.unit} (mín. ${sup.minStock})`,
         })
       }
@@ -562,7 +567,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const o of s.purchaseOrders) {
       if ((o.status === 'sent' || o.status === 'partial') && o.expectedDate && o.expectedDate < today) {
         push({
-          type: 'error', category: 'purchases', link: '/purchases',
+          type: 'error', category: 'purchases', link: `/purchases?open=${o.id}`,
           message: `OC atrasada: ${o.orderNumber} de ${o.supplier} (esperada ${o.expectedDate})`,
         })
       }
@@ -572,7 +577,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const q of s.quotations) {
       if ((q.status === 'draft' || q.status === 'sent') && q.validUntil >= today && q.validUntil <= in3Days) {
         push({
-          type: 'warning', category: 'sales', link: '/quotations',
+          type: 'warning', category: 'sales', link: `/quotations?open=${q.id}`,
           message: `Cotización por vencer: ${q.quoteNumber} — ${q.customer} (${q.validUntil})`,
         })
       }
@@ -582,7 +587,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const o of s.saleOrders) {
       if (['confirmed', 'processing'].includes(o.status) && o.deliveryDate && o.deliveryDate < today) {
         push({
-          type: 'error', category: 'sales', link: '/sales',
+          type: 'error', category: 'sales', link: `/sales?open=${o.id}`,
           message: `Entrega vencida: ${o.orderNumber} — ${o.customer} (debía ${o.deliveryDate})`,
         })
       }
@@ -592,7 +597,7 @@ export const useStore = create<AppState>((set, get) => ({
     for (const o of s.productionOrders) {
       if (o.status === 'pending' && o.priority === 1) {
         push({
-          type: 'warning', category: 'production', link: '/production',
+          type: 'warning', category: 'production', link: `/production?open=${o.id}`,
           message: `Producción prioritaria pendiente: ${o.orderNumber} — ${o.product}`,
         })
       }

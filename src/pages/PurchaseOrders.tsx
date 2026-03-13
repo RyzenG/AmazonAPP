@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, X, ShoppingCart, Clock, CheckCircle, AlertTriangle,
   Pencil, Trash2, FileSpreadsheet, PackageCheck, ChevronDown, ChevronUp, Building2,
@@ -366,6 +367,7 @@ function POCard({ order, onEdit, onDelete, onReceive, canEdit, canDelete }: {
 export default function PurchaseOrders() {
   const { purchaseOrders, deletePurchaseOrder } = useStore()
   const { canEdit, canDelete } = usePermissions()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search,     setSearch]     = useState('')
   const [statusFilter, setStatus]   = useState<'all' | Status>('all')
   const [showModal,  setShowModal]  = useState(false)
@@ -374,6 +376,18 @@ export default function PurchaseOrders() {
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null)
   const [deleting,   setDeleting]   = useState(false)
   const [page,       setPage]       = useState(1)
+
+  // Deep link: ?open=ID → auto-open the order modal
+  useEffect(() => {
+    const id = searchParams.get('open')
+    if (!id || purchaseOrders.length === 0) return
+    const order = purchaseOrders.find((o) => o.id === id)
+    if (order) {
+      setEditOrder(order)
+      setShowModal(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, purchaseOrders])
   const PAGE_SIZE = 10
 
   const filtered = useMemo(() =>

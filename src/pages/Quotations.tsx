@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, X, Search, FileText, CheckCircle, XCircle, Send,
   Clock, Eye, Pencil, Trash2, Download, ShoppingCart,
@@ -499,6 +500,7 @@ function QuotationDrawer({ quotation, onClose, onEdit, onConvert, onDownload, co
 export default function Quotations() {
   const { quotations, deleteQuotation, convertQuotation } = useStore()
   const { canEdit, canDelete } = usePermissions()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatus]   = useState<'all' | Quotation['status'] | 'expired'>('all')
@@ -511,6 +513,17 @@ export default function Quotations() {
   const [converting, setConverting] = useState(false)
   const [printQ, setPrintQ]         = useState<Quotation | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+
+  // Deep link: ?open=ID → auto-open the quotation drawer
+  useEffect(() => {
+    const id = searchParams.get('open')
+    if (!id || quotations.length === 0) return
+    const q = quotations.find((q) => q.id === id)
+    if (q) {
+      setDrawer(q)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, quotations])
 
   // ── PDF generation ──────────────────────────────────────────────────────────
   const handleDownload = async (q: Quotation) => {

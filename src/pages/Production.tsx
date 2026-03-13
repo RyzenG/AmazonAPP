@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Play, CheckCircle, XCircle, Clock, Factory, X, ChevronDown, Trash2, BookOpen } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { ProductionOrder, Recipe } from '../data/mockData'
@@ -360,6 +361,7 @@ function NewRecipeModal({ onClose }: { onClose: () => void }) {
 export default function Production() {
   const { productionOrders, recipes, deleteProductionOrder, deleteRecipe } = useStore()
   const { canDelete } = usePermissions()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filter, setFilter]         = useState('all')
   const [showModal, setShowModal]   = useState(false)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
@@ -367,6 +369,23 @@ export default function Production() {
   const [deleteTarget, setDeleteTarget]       = useState<ProductionOrder | null>(null)
   const [deleteRecipeTarget, setDeleteRecipeTarget] = useState<Recipe | null>(null)
   const [deleting, setDeleting]               = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  // Deep link: ?open=ID → scroll to card and briefly highlight it
+  useEffect(() => {
+    const id = searchParams.get('open')
+    if (!id || productionOrders.length === 0) return
+    const exists = productionOrders.find((o) => o.id === id)
+    if (exists) {
+      setFilter('all')
+      setHighlightId(id)
+      setSearchParams({}, { replace: true })
+      setTimeout(() => {
+        document.getElementById(`prod-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 100)
+      setTimeout(() => setHighlightId(null), 3000)
+    }
+  }, [searchParams, productionOrders])
 
   const filtered = filter === 'all' ? productionOrders
     : productionOrders.filter((o) => o.status === filter)
@@ -440,10 +459,13 @@ export default function Production() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((o) => (
-              <OrderCard key={o.id} order={o}
-                canDelete={canDelete('production')}
-                onDelete={() => setDeleteTarget(o)}
-              />
+              <div key={o.id} id={`prod-${o.id}`}
+                className={highlightId === o.id ? 'ring-2 ring-amber-400 ring-offset-2 rounded-xl transition-all duration-300' : ''}>
+                <OrderCard order={o}
+                  canDelete={canDelete('production')}
+                  onDelete={() => setDeleteTarget(o)}
+                />
+              </div>
             ))}
             {filtered.length === 0 && (
               <div className="col-span-3 text-center py-16 text-slate-400 dark:text-gray-600">
