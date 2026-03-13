@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Factory, ShoppingCart,
   Users, BarChart3, BookOpen, Settings, ChevronLeft, ChevronRight,
-  Leaf, LogOut, FileText,
+  Leaf, LogOut, FileText, Truck,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 
@@ -12,6 +12,7 @@ const nav = [
   { to:'/production', icon:Factory,         label:'Producción'   },
   { to:'/sales',      icon:ShoppingCart,    label:'Ventas'       },
   { to:'/quotations', icon:FileText,        label:'Cotizaciones'  },
+  { to:'/purchases',  icon:Truck,           label:'Compras'      },
   { to:'/crm',        icon:Users,           label:'Clientes'     },
   { to:'/catalog',    icon:BookOpen,        label:'Catálogo'     },
   { to:'/reports',    icon:BarChart3,       label:'Reportes'     },

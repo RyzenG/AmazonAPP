@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation, CustomerActivity,
+  PurchaseOrder,
 } from '../data/mockData'
 
 export interface Notification {
@@ -56,6 +57,7 @@ interface AppState {
   recipes:          Recipe[]
   quotations:       Quotation[]
   activities:       CustomerActivity[]
+  purchaseOrders:   PurchaseOrder[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -105,6 +107,10 @@ interface AppState {
   addActivity:      (a: CustomerActivity) => Promise<void>
   updateActivity:   (a: CustomerActivity) => Promise<void>
   deleteActivity:   (id: string)          => Promise<void>
+  addPurchaseOrder:     (o: PurchaseOrder) => Promise<void>
+  updatePurchaseOrder:  (o: PurchaseOrder) => Promise<void>
+  deletePurchaseOrder:  (id: string)       => Promise<void>
+  receivePurchaseOrder: (id: string, receivedQty: Record<string, number>) => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -205,6 +211,7 @@ export const useStore = create<AppState>((set, get) => ({
   recipes:          [],
   quotations:       [],
   activities:       [],
+  purchaseOrders:   [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -217,7 +224,7 @@ export const useStore = create<AppState>((set, get) => ({
   loadAllData: async () => {
     if (get().dataLoaded) return
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -228,6 +235,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<Partial<CompanySettings>>('/api/settings'),
           apiFetch<Quotation[]>('/api/quotations'),
           apiFetch<CustomerActivity[]>('/api/customer-activities'),
+          apiFetch<PurchaseOrder[]>('/api/purchase-orders'),
         ])
 
       const companySettings: CompanySettings = {
@@ -257,7 +265,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, companySettings, dataLoaded: true })
     } catch (e) {
       console.error('No se pudo conectar con el servidor:', e)
     }
@@ -473,6 +481,50 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ activities: s.activities.filter((x) => x.id !== id) }))
   },
 
+  addPurchaseOrder: async (order) => {
+    await apiFetch('/api/purchase-orders', { method: 'POST', body: JSON.stringify(order) })
+    set((s) => ({ purchaseOrders: [order, ...s.purchaseOrders] }))
+  },
+  updatePurchaseOrder: async (order) => {
+    await apiFetch(`/api/purchase-orders/${order.id}`, { method: 'PUT', body: JSON.stringify(order) })
+    set((s) => ({ purchaseOrders: s.purchaseOrders.map((x) => x.id === order.id ? order : x) }))
+  },
+  deletePurchaseOrder: async (id) => {
+    await apiFetch(`/api/purchase-orders/${id}`, { method: 'DELETE' })
+    set((s) => ({ purchaseOrders: s.purchaseOrders.filter((x) => x.id !== id) }))
+  },
+  receivePurchaseOrder: async (id, receivedQtyMap) => {
+    const s = get()
+    const order = s.purchaseOrders.find((x) => x.id === id)
+    if (!order) return
+
+    const updatedItems = order.items.map((item) => ({
+      ...item,
+      receivedQty: (item.receivedQty ?? 0) + (receivedQtyMap[item.supplyId] ?? 0),
+    }))
+    const allReceived = updatedItems.every((i) => (i.receivedQty ?? 0) >= i.qty)
+    const anyReceived = updatedItems.some((i) => (i.receivedQty ?? 0) > 0)
+    const newStatus: PurchaseOrder['status'] = allReceived ? 'received' : anyReceived ? 'partial' : order.status
+
+    const updated: PurchaseOrder = {
+      ...order, items: updatedItems, status: newStatus,
+      receivedDate: newStatus === 'received' ? new Date().toISOString().split('T')[0] : order.receivedDate,
+    }
+
+    await apiFetch(`/api/purchase-orders/${id}`, { method: 'PUT', body: JSON.stringify(updated) })
+
+    // Update supply stock for received quantities
+    const updatedSupplies = s.supplies.map((sup) => {
+      const qty = receivedQtyMap[sup.id]
+      if (!qty) return sup
+      const newSup = { ...sup, stock: parseFloat((sup.stock + qty).toFixed(4)) }
+      apiFetch(`/api/supplies/${sup.id}`, { method: 'PUT', body: JSON.stringify(newSup) })
+      return newSup
+    })
+
+    set(() => ({ purchaseOrders: s.purchaseOrders.map((x) => x.id === id ? updated : x), supplies: updatedSupplies }))
+  },
+
   // ── Factory reset ──────────────────────────────────────────────────────────
   factoryReset: async () => {
     await apiFetch('/api/reset', { method: 'DELETE' })
@@ -483,7 +535,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Reset store to blank state (keep page alive, logout will redirect)
     set({
       supplies: [], products: [], productionOrders: [],
-      customers: [], saleOrders: [], recipes: [], quotations: [], activities: [],
+      customers: [], saleOrders: [], recipes: [], quotations: [], activities: [], purchaseOrders: [],
       companySettings: defaultCompanySettings,
       notifications: [],
       dataLoaded: false,

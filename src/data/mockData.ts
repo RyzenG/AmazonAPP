@@ -54,6 +54,30 @@ export interface SaleOrder {
   notes?: string
 }
 
+export interface PurchaseOrderItem {
+  supplyId: string
+  supplyName: string
+  unit: string
+  qty: number
+  unitCost: number
+  subtotal: number
+  receivedQty?: number
+}
+
+export interface PurchaseOrder {
+  id: string
+  orderNumber: string
+  supplier: string
+  status: 'draft' | 'sent' | 'received' | 'partial' | 'cancelled'
+  date: string
+  expectedDate?: string
+  receivedDate?: string
+  items: PurchaseOrderItem[]
+  subtotal: number
+  total: number
+  notes?: string
+}
+
 export interface CustomerActivity {
   id: string
   customerId: string
@@ -243,6 +267,46 @@ export const quotations: Quotation[] = [
     subtotal:414000, tax:78660, total:492660,
     status:'rejected', validUntil:'2025-03-08', date:'2025-02-25',
     notes:'Cliente solicitó descuento mayor al 20%, no fue posible aplicar.',
+  },
+]
+
+// ── Purchase Orders ───────────────────────────
+export const purchaseOrders: PurchaseOrder[] = [
+  {
+    id:'oc1', orderNumber:'OC-2025-001', supplier:'Cemex Colombia', status:'received',
+    date:'2025-02-01', expectedDate:'2025-02-08', receivedDate:'2025-02-07',
+    items:[
+      { supplyId:'s1', supplyName:'Cemento gris Portland', unit:'kg', qty:100, unitCost:850,  subtotal:85000 },
+      { supplyId:'s2', supplyName:'Cemento blanco',        unit:'kg', qty:50,  unitCost:1400, subtotal:70000 },
+    ],
+    subtotal:155000, total:155000, notes:'Pedido mensual de cementos.',
+  },
+  {
+    id:'oc2', orderNumber:'OC-2025-002', supplier:'ColorConcrete', status:'sent',
+    date:'2025-03-05', expectedDate:'2025-03-12',
+    items:[
+      { supplyId:'s5', supplyName:'Pigmento negro óxido',    unit:'kg', qty:10, unitCost:9800,  subtotal:98000 },
+      { supplyId:'s6', supplyName:'Pigmento blanco titanio', unit:'kg', qty:8,  unitCost:11200, subtotal:89600 },
+      { supplyId:'s7', supplyName:'Pigmento terracota',      unit:'kg', qty:6,  unitCost:10500, subtotal:63000 },
+    ],
+    subtotal:250600, total:250600,
+  },
+  {
+    id:'oc3', orderNumber:'OC-2025-003', supplier:'FibraPlast SAS', status:'draft',
+    date:'2025-03-10',
+    items:[
+      { supplyId:'s4', supplyName:'Fibra de vidrio AR', unit:'kg', qty:20, unitCost:12500, subtotal:250000 },
+    ],
+    subtotal:250000, total:250000, notes:'Pendiente confirmar precio con el proveedor.',
+  },
+  {
+    id:'oc4', orderNumber:'OC-2025-004', supplier:'AgroVerde', status:'partial',
+    date:'2025-03-01', expectedDate:'2025-03-08', receivedDate:'2025-03-07',
+    items:[
+      { supplyId:'s13', supplyName:'Tierra negra abonada', unit:'kg', qty:100, unitCost:650,  subtotal:65000,  receivedQty:60 },
+      { supplyId:'s14', supplyName:'Perlita agrícola',     unit:'kg', qty:30,  unitCost:2800, subtotal:84000,  receivedQty:30 },
+    ],
+    subtotal:149000, total:149000, notes:'Pendiente 40 kg tierra negra.',
   },
 ]
 
