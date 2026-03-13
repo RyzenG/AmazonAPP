@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import {
-  Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe,
+  Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation,
 } from '../data/mockData'
 
 export interface Notification {
@@ -54,6 +54,7 @@ interface AppState {
   customers:        Customer[]
   saleOrders:       SaleOrder[]
   recipes:          Recipe[]
+  quotations:       Quotation[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -96,6 +97,10 @@ interface AppState {
   deleteProductionOrder:(id: string) => Promise<void>
   addRecipe:    (r: Recipe)  => Promise<void>
   deleteRecipe: (id: string) => Promise<void>
+  addQuotation:     (q: Quotation) => Promise<void>
+  updateQuotation:  (q: Quotation) => Promise<void>
+  deleteQuotation:  (id: string)   => Promise<void>
+  convertQuotation: (id: string)   => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -194,6 +199,7 @@ export const useStore = create<AppState>((set, get) => ({
   customers:        [],
   saleOrders:       [],
   recipes:          [],
+  quotations:       [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -206,7 +212,7 @@ export const useStore = create<AppState>((set, get) => ({
   loadAllData: async () => {
     if (get().dataLoaded) return
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -215,6 +221,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<SaleOrder[]>('/api/sale-orders'),
           apiFetch<Recipe[]>('/api/recipes'),
           apiFetch<Partial<CompanySettings>>('/api/settings'),
+          apiFetch<Quotation[]>('/api/quotations'),
         ])
 
       const companySettings: CompanySettings = {
@@ -244,7 +251,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, companySettings, dataLoaded: true })
     } catch (e) {
       console.error('No se pudo conectar con el servidor:', e)
     }
@@ -411,6 +418,42 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ recipes: s.recipes.filter((x) => x.id !== id) }))
   },
 
+  addQuotation: async (quotation) => {
+    await apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(quotation) })
+    set((s) => ({ quotations: [quotation, ...s.quotations] }))
+  },
+  updateQuotation: async (quotation) => {
+    await apiFetch(`/api/quotations/${quotation.id}`, { method: 'PUT', body: JSON.stringify(quotation) })
+    set((s) => ({ quotations: s.quotations.map((x) => x.id === quotation.id ? quotation : x) }))
+  },
+  deleteQuotation: async (id) => {
+    await apiFetch(`/api/quotations/${id}`, { method: 'DELETE' })
+    set((s) => ({ quotations: s.quotations.filter((x) => x.id !== id) }))
+  },
+  convertQuotation: async (id) => {
+    const s = get()
+    const q = s.quotations.find((x) => x.id === id)
+    if (!q || q.convertedToOrderId) return
+    const order: SaleOrder = {
+      id: `so${Date.now()}`,
+      orderNumber: `${s.companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(s.saleOrders.length + 1).padStart(4, '0')}`,
+      customer: q.customer, customerId: q.customerId,
+      items: q.items,
+      subtotal: q.subtotal, tax: q.tax, total: q.total,
+      status: 'confirmed', paymentStatus: 'pending', paymentMethod: 'Transferencia',
+      date: new Date().toISOString().split('T')[0],
+      deliveryDate: q.deliveryEstimate || undefined,
+      notes: q.notes,
+    }
+    await apiFetch('/api/sale-orders', { method: 'POST', body: JSON.stringify(order) })
+    const updated: Quotation = { ...q, status: 'accepted', convertedToOrderId: order.id }
+    await apiFetch(`/api/quotations/${id}`, { method: 'PUT', body: JSON.stringify(updated) })
+    set((s2) => ({
+      saleOrders: [...s2.saleOrders, order],
+      quotations: s2.quotations.map((x) => x.id === id ? updated : x),
+    }))
+  },
+
   // ── Factory reset ──────────────────────────────────────────────────────────
   factoryReset: async () => {
     await apiFetch('/api/reset', { method: 'DELETE' })
@@ -421,7 +464,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Reset store to blank state (keep page alive, logout will redirect)
     set({
       supplies: [], products: [], productionOrders: [],
-      customers: [], saleOrders: [], recipes: [],
+      customers: [], saleOrders: [], recipes: [], quotations: [],
       companySettings: defaultCompanySettings,
       notifications: [],
       dataLoaded: false,

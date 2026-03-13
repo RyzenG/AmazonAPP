@@ -14,6 +14,7 @@ import recipesRouter        from './routes/recipes.js'
 import settingsRouter       from './routes/settings.js'
 import resetRouter          from './routes/reset.js'
 import auditLogRouter       from './routes/auditLog.js'
+import quotationsRouter     from './routes/quotations.js'
 
 dotenv.config()
 
@@ -56,6 +57,24 @@ async function migrate() {
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS sku TEXT DEFAULT '';
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS recipe_id TEXT DEFAULT '';
       ALTER TABLE products   ADD COLUMN IF NOT EXISTS variants JSONB DEFAULT '[]';
+      CREATE TABLE IF NOT EXISTS quotations (
+        id                    TEXT PRIMARY KEY,
+        quote_number          TEXT,
+        customer              TEXT NOT NULL,
+        customer_id           TEXT DEFAULT '',
+        items                 JSONB NOT NULL DEFAULT '[]',
+        subtotal              NUMERIC(12,2) DEFAULT 0,
+        tax                   NUMERIC(12,2) DEFAULT 0,
+        total                 NUMERIC(12,2) DEFAULT 0,
+        status                TEXT NOT NULL DEFAULT 'draft',
+        valid_until           DATE,
+        date                  DATE,
+        delivery_estimate     TEXT DEFAULT '',
+        notes                 TEXT DEFAULT '',
+        internal_notes        TEXT DEFAULT '',
+        converted_to_order_id TEXT DEFAULT '',
+        created_at            TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS users (
         id         TEXT PRIMARY KEY,
         name       TEXT NOT NULL,
@@ -112,6 +131,7 @@ app.use('/api/recipes',           recipesRouter)
 app.use('/api/settings',          settingsRouter)
 app.use('/api/reset',             resetRouter)
 app.use('/api/audit',             auditLogRouter)
+app.use('/api/quotations',        quotationsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

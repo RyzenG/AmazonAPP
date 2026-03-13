@@ -54,6 +54,16 @@ export interface SaleOrder {
   notes?: string
 }
 
+export interface Quotation {
+  id: string; quoteNumber: string; customer: string; customerId: string
+  items: { product: string; productId?: string; variantId?: string; qty: number; price: number; subtotal: number }[]
+  subtotal: number; tax: number; total: number
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  validUntil: string; date: string
+  deliveryEstimate?: string; notes?: string; internalNotes?: string
+  convertedToOrderId?: string
+}
+
 // ── Supplies ────────────────────────────────
 export const supplies: Supply[] = [
   { id:'s1',  sku:'INS-001', name:'Cemento gris Portland',   category:'Cementos',    unit:'kg',  stock:120, minStock:50,  cost:0.85, supplier:'Cemex Colombia' },
@@ -174,6 +184,55 @@ export const saleOrders: SaleOrder[] = [
   { id:'so6', orderNumber:'VTA-2025-006', customer:'Valentina Cruz',     customerId:'c5', items:[{product:'Kit Inicio Concreto',productId:'p11',qty:1,price:180000,subtotal:180000}], subtotal:180000, tax:34200, total:214200, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Efectivo',      date:'2025-03-04' },
   { id:'so7', orderNumber:'VTA-2025-007', customer:'Daniela Morales',    customerId:'c1', items:[{product:'Portavelas Set x3',productId:'p6',qty:4,price:48000,subtotal:192000},{product:'Suculenta Haworthia',productId:'p8',qty:4,price:18000,subtotal:72000}], subtotal:264000, tax:50160, total:314160,  status:'delivered',   paymentStatus:'paid',    paymentMethod:'Tarjeta',       date:'2025-02-28', deliveryDate:'2025-02-28' },
   { id:'so8', orderNumber:'VTA-2025-008', customer:'Felipe Guzmán',      customerId:'c2', items:[{product:'Maceta Redonda M',productId:'p2',qty:12,price:55000,subtotal:660000},{product:'Maceta Redonda S — Negro / Sellado mate',productId:'p1',variantId:'v1-2',qty:15,price:38000,subtotal:570000}], subtotal:1230000, tax:233700, total:1463700, status:'delivered',   paymentStatus:'paid',    paymentMethod:'Transferencia', date:'2025-02-20', deliveryDate:'2025-02-22' },
+]
+
+// ── Quotations ────────────────────────────────
+export const quotations: Quotation[] = [
+  {
+    id:'q1', quoteNumber:'COT-2025-001', customer:'Daniela Morales', customerId:'c1',
+    items:[
+      {product:'Maceta Redonda M',productId:'p2',qty:10,price:55000,subtotal:550000},
+      {product:'Jarrón Cónico — Negro / Sellado mate',productId:'p5',variantId:'v5-2',qty:3,price:105000,subtotal:315000},
+    ],
+    subtotal:865000, tax:164350, total:1029350,
+    status:'sent', validUntil:'2025-03-25', date:'2025-03-10',
+    deliveryEstimate:'15 días hábiles',
+    notes:'Incluye empaque especial para envío. Colores según muestra enviada por correo.',
+    internalNotes:'Cliente prefiere entrega los viernes. Confirmar disponibilidad.',
+  },
+  {
+    id:'q2', quoteNumber:'COT-2025-002', customer:'Boutique Terraverde', customerId:'c4',
+    items:[
+      {product:'Maceta Redonda S — Terracota / Sellado mate',productId:'p1',variantId:'v1-3',qty:20,price:38000,subtotal:760000},
+      {product:'Portavelas Set x3',productId:'p6',qty:8,price:48000,subtotal:384000},
+    ],
+    subtotal:1144000, tax:217360, total:1361360,
+    status:'accepted', validUntil:'2025-03-20', date:'2025-03-05',
+    deliveryEstimate:'20 días hábiles',
+    notes:'Pedido para nueva colección primavera. Confirmado por WhatsApp.',
+  },
+  {
+    id:'q3', quoteNumber:'COT-2025-003', customer:'Hotel Selva Real', customerId:'c6',
+    items:[
+      {product:'Jarrón Cónico — Blanco / Sellado brillante',productId:'p5',variantId:'v5-3',qty:6,price:108000,subtotal:648000},
+      {product:'Maceta Redonda L',productId:'p3',qty:6,price:85000,subtotal:510000},
+      {product:'Bandeja Rectangular',productId:'p4',qty:4,price:68000,subtotal:272000},
+    ],
+    subtotal:1430000, tax:271700, total:1701700,
+    status:'draft', validUntil:'2025-03-30', date:'2025-03-12',
+    deliveryEstimate:'30 días hábiles',
+    internalNotes:'Pendiente confirmar medidas exactas con la decoradora del hotel.',
+  },
+  {
+    id:'q4', quoteNumber:'COT-2025-004', customer:'Camila Ospina', customerId:'c3',
+    items:[
+      {product:'Kit Inicio Concreto',productId:'p11',qty:2,price:180000,subtotal:360000},
+      {product:'Suculenta Haworthia',productId:'p8',qty:3,price:18000,subtotal:54000},
+    ],
+    subtotal:414000, tax:78660, total:492660,
+    status:'rejected', validUntil:'2025-03-08', date:'2025-02-25',
+    notes:'Cliente solicitó descuento mayor al 20%, no fue posible aplicar.',
+  },
 ]
 
 // ── Sales chart data (last 30 days) ───────────
