@@ -75,7 +75,7 @@ interface AppState {
   // Notifications
   notifications: Notification[]
   // Actions – data loading
-  loadAllData: () => Promise<void>
+  loadAllData: (force?: boolean) => Promise<void>
   // Actions – UI
   setSidebarOpen: (v: boolean) => void
   toggleDarkMode: () => void
@@ -229,8 +229,9 @@ export const useStore = create<AppState>((set, get) => ({
   notifications:    initialNotifications,
 
   // ── Load all data from API ─────────────────────────────────────────────────
-  loadAllData: async () => {
-    if (get().dataLoaded) return
+  loadAllData: async (force = false) => {
+    if (get().dataLoaded && !force) return
+    if (force) set({ dataLoaded: false })
     try {
       const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders] =
         await Promise.all([
@@ -365,6 +366,7 @@ export const useStore = create<AppState>((set, get) => ({
                 apiFetch(`/api/supplies/${sup.id}`, { method: 'PUT', body: JSON.stringify(sup) })
               }
             })
+            setTimeout(() => get().checkAlerts(), 0)
             return { productionOrders: updatedOrders, supplies: updatedSupplies }
           }
         }
@@ -535,6 +537,8 @@ export const useStore = create<AppState>((set, get) => ({
     })
 
     set(() => ({ purchaseOrders: s.purchaseOrders.map((x) => x.id === id ? updated : x), supplies: updatedSupplies }))
+    // Re-run alerts: stock levels changed after receiving
+    setTimeout(() => get().checkAlerts(), 0)
   },
 
   // ── Smart alerts engine ────────────────────────────────────────────────────
@@ -544,8 +548,15 @@ export const useStore = create<AppState>((set, get) => ({
     const in3Days  = new Date(Date.now() + 3  * 86400000).toISOString().split('T')[0]
     const ago7Days = new Date(Date.now() - 7  * 86400000).toISOString().split('T')[0]
 
-    // Deduplicate: skip if same message already exists (read or unread)
-    const existingMsgs = new Set(s.notifications.map((n) => n.message))
+    // Remove stale auto-generated alerts (keep only 'general' and user-cleared ones)
+    const AUTO_CATEGORIES: NotifCategory[] = ['inventory', 'purchases', 'sales', 'production', 'crm']
+    const kept = s.notifications.filter((n) => !AUTO_CATEGORIES.includes(n.category))
+    const updatedNotifs = kept
+    localStorage.setItem('erp_notifications', JSON.stringify(updatedNotifs))
+    set({ notifications: updatedNotifs })
+
+    // Track already-generated messages to avoid intra-run duplicates
+    const existingMsgs = new Set(updatedNotifs.map((n) => n.message))
     const push = (notif: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
       if (!existingMsgs.has(notif.message)) {
         s.addNotification(notif)

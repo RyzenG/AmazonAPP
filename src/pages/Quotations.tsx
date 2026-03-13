@@ -523,7 +523,7 @@ export default function Quotations() {
       setDrawer(q)
       setSearchParams({}, { replace: true })
     }
-  }, [searchParams, quotations])
+  }, [searchParams, quotations, setSearchParams])
 
   // ── PDF generation ──────────────────────────────────────────────────────────
   const handleDownload = async (q: Quotation) => {

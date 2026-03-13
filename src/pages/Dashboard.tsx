@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, Package, Factory,
   AlertTriangle, ShoppingCart, DollarSign, Users, Clock, RefreshCw,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatCOP } from '../utils/currency'
 import { useEffect, useState } from 'react'
@@ -63,7 +64,7 @@ export default function Dashboard() {
 
   const refresh = async () => {
     setRefreshing(true)
-    await loadAllData()
+    await loadAllData(true)
     setLastRefresh(new Date())
     setRefreshing(false)
   }
@@ -142,7 +143,7 @@ export default function Dashboard() {
           <p className="font-semibold text-slate-700 dark:text-gray-200 mb-1">{label}</p>
           {payload.map((p: any) => (
             <p key={p.name} style={{ color: p.color }}>
-              {p.name === 'ventas' ? 'Ventas' : 'Meta'}: ${p.value.toLocaleString()}
+              Ventas: ${p.value.toLocaleString()}
             </p>
           ))}
         </div>
@@ -216,8 +217,6 @@ export default function Dashboard() {
               <XAxis dataKey="day" tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} interval={4} />
               <YAxis tick={{ fontSize:11, fill:tickColor }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
               <Tooltip content={customTooltip} />
-              <Legend wrapperStyle={{ fontSize:'12px' }} />
-              <Line type="monotone" dataKey="meta"   stroke={darkMode ? '#4b5563' : '#e2e8f0'} strokeWidth={2} dot={false} name="Meta" />
               <Line type="monotone" dataKey="ventas" stroke="#2563eb" strokeWidth={2.5} dot={false} name="Ventas" activeDot={{ r:5, fill:'#2563eb' }} />
             </LineChart>
           </ResponsiveContainer>
@@ -290,7 +289,7 @@ export default function Dashboard() {
         <div className="card p-5 xl:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-800 dark:text-white">Últimas ventas</h2>
-            <a href="/sales" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</a>
+            <Link to="/sales" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</Link>
           </div>
           <div className="space-y-0">
             <div className="grid grid-cols-4 text-xs text-slate-400 dark:text-gray-500 font-medium pb-2 border-b border-slate-100 dark:border-gray-700">
@@ -374,7 +373,7 @@ export default function Dashboard() {
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-slate-800 dark:text-white">Estado de producción</h2>
-          <a href="/production" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</a>
+          <Link to="/production" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {productionOrders.map((o) => (

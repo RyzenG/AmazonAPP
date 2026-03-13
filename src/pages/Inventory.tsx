@@ -165,7 +165,7 @@ export default function Inventory() {
       setShowModal(true)
       setSearchParams({}, { replace: true })
     }
-  }, [searchParams, supplies])
+  }, [searchParams, supplies, setSearchParams])
 
   const categories = ['Todos', ...Array.from(new Set(supplies.map((s) => s.category)))]
   const filtered   = supplies.filter((s) => {

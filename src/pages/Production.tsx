@@ -385,7 +385,7 @@ export default function Production() {
       }, 100)
       setTimeout(() => setHighlightId(null), 3000)
     }
-  }, [searchParams, productionOrders])
+  }, [searchParams, productionOrders, setSearchParams])
 
   const filtered = filter === 'all' ? productionOrders
     : productionOrders.filter((o) => o.status === filter)

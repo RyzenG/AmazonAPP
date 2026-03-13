@@ -681,7 +681,7 @@ export default function Sales() {
       setDetail(order)
       setSearchParams({}, { replace: true })
     }
-  }, [searchParams, saleOrders])
+  }, [searchParams, saleOrders, setSearchParams])
 
   const handleDuplicate = (o: SaleOrder) => {
     const newOrder: SaleOrder = {

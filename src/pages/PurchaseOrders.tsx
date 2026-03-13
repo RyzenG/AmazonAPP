@@ -387,7 +387,7 @@ export default function PurchaseOrders() {
       setShowModal(true)
       setSearchParams({}, { replace: true })
     }
-  }, [searchParams, purchaseOrders])
+  }, [searchParams, purchaseOrders, setSearchParams])
   const PAGE_SIZE = 10
 
   const filtered = useMemo(() =>
