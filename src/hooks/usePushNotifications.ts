@@ -33,7 +33,7 @@ export function usePushNotifications() {
           ? `⚠️ Stock bajo: ${lowStock[0].name} (${lowStock[0].stock} ${lowStock[0].unit})`
           : `⚠️ ${lowStock.length} insumos con stock bajo`
 
-      addNotification({ type: 'warning', message: msg })
+      addNotification({ type: 'warning', category: 'inventory', link: '/inventory', message: msg })
 
       if (canNotify) {
         new Notification('Amazonia ERP — Stock bajo', {
@@ -48,7 +48,7 @@ export function usePushNotifications() {
     const pendingPay = saleOrders.filter((o) => o.paymentStatus === 'pending')
     if (pendingPay.length > 0) {
       const msg = `💳 ${pendingPay.length} orden${pendingPay.length > 1 ? 'es' : ''} con pago pendiente`
-      addNotification({ type: 'info', message: msg })
+      addNotification({ type: 'info', category: 'sales', link: '/sales', message: msg })
 
       if (canNotify) {
         new Notification('Amazonia ERP — Pagos pendientes', {

@@ -4,12 +4,16 @@ import {
   PurchaseOrder,
 } from '../data/mockData'
 
+export type NotifCategory = 'inventory' | 'purchases' | 'sales' | 'crm' | 'production' | 'general'
+
 export interface Notification {
   id: string
   type: 'warning' | 'info' | 'success' | 'error'
+  category: NotifCategory
   message: string
   timestamp: Date
   read: boolean
+  link?: string
 }
 
 export interface AuthUser {
@@ -79,6 +83,7 @@ interface AppState {
   logout: () => void
   // Actions – notifications
   addNotification:  (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
+  checkAlerts:      () => void
   markAsRead:       (id: string) => void
   markAllAsRead:    () => void
   clearNotifications: () => void
@@ -143,7 +148,7 @@ const getNotifications = (): Notification[] => {
   try {
     const raw = localStorage.getItem('erp_notifications')
     if (!raw) return []
-    return JSON.parse(raw).map((n: Notification) => ({ ...n, timestamp: new Date(n.timestamp) }))
+    return JSON.parse(raw).map((n: Notification) => ({ ...n, timestamp: new Date(n.timestamp), category: n.category ?? 'general' }))
   } catch { return [] }
 }
 
@@ -266,6 +271,8 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, companySettings, dataLoaded: true })
+      // Run smart alerts after data is ready
+      get().checkAlerts()
     } catch (e) {
       console.error('No se pudo conectar con el servidor:', e)
     }
@@ -523,6 +530,82 @@ export const useStore = create<AppState>((set, get) => ({
     })
 
     set(() => ({ purchaseOrders: s.purchaseOrders.map((x) => x.id === id ? updated : x), supplies: updatedSupplies }))
+  },
+
+  // ── Smart alerts engine ────────────────────────────────────────────────────
+  checkAlerts: () => {
+    const s = get()
+    const today    = new Date().toISOString().split('T')[0]
+    const in3Days  = new Date(Date.now() + 3  * 86400000).toISOString().split('T')[0]
+    const ago7Days = new Date(Date.now() - 7  * 86400000).toISOString().split('T')[0]
+
+    // Deduplicate: skip if same message already exists (read or unread)
+    const existingMsgs = new Set(s.notifications.map((n) => n.message))
+    const push = (notif: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+      if (!existingMsgs.has(notif.message)) {
+        s.addNotification(notif)
+        existingMsgs.add(notif.message)
+      }
+    }
+
+    // 1. Stock bajo (supplies)
+    for (const sup of s.supplies) {
+      if (sup.stock <= sup.minStock) {
+        push({
+          type: 'warning', category: 'inventory', link: '/inventory',
+          message: `Stock bajo: ${sup.name} — ${sup.stock} ${sup.unit} (mín. ${sup.minStock})`,
+        })
+      }
+    }
+
+    // 2. Órdenes de compra atrasadas
+    for (const o of s.purchaseOrders) {
+      if ((o.status === 'sent' || o.status === 'partial') && o.expectedDate && o.expectedDate < today) {
+        push({
+          type: 'error', category: 'purchases', link: '/purchases',
+          message: `OC atrasada: ${o.orderNumber} de ${o.supplier} (esperada ${o.expectedDate})`,
+        })
+      }
+    }
+
+    // 3. Cotizaciones próximas a vencer (dentro de 3 días)
+    for (const q of s.quotations) {
+      if ((q.status === 'draft' || q.status === 'sent') && q.validUntil >= today && q.validUntil <= in3Days) {
+        push({
+          type: 'warning', category: 'sales', link: '/quotations',
+          message: `Cotización por vencer: ${q.quoteNumber} — ${q.customer} (${q.validUntil})`,
+        })
+      }
+    }
+
+    // 4. Pedidos de venta con entrega vencida
+    for (const o of s.saleOrders) {
+      if (['confirmed', 'processing'].includes(o.status) && o.deliveryDate && o.deliveryDate < today) {
+        push({
+          type: 'error', category: 'sales', link: '/sales',
+          message: `Entrega vencida: ${o.orderNumber} — ${o.customer} (debía ${o.deliveryDate})`,
+        })
+      }
+    }
+
+    // 5. Órdenes de producción prioritarias sin iniciar
+    for (const o of s.productionOrders) {
+      if (o.status === 'pending' && o.priority === 1) {
+        push({
+          type: 'warning', category: 'production', link: '/production',
+          message: `Producción prioritaria pendiente: ${o.orderNumber} — ${o.product}`,
+        })
+      }
+    }
+
+    // 6. Seguimientos de CRM sin completar por más de 7 días
+    const stale = s.activities.filter((a) => !a.done && a.date < ago7Days)
+    if (stale.length > 0) {
+      push({
+        type: 'info', category: 'crm', link: '/crm',
+        message: `${stale.length} seguimiento${stale.length > 1 ? 's' : ''} de CRM pendiente${stale.length > 1 ? 's' : ''} (más de 7 días)`,
+      })
+    }
   },
 
   // ── Factory reset ──────────────────────────────────────────────────────────

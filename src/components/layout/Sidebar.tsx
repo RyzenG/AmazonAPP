@@ -5,23 +5,33 @@ import {
   Leaf, LogOut, FileText, Truck,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
+import { useMemo } from 'react'
 
 const nav = [
-  { to:'/dashboard',  icon:LayoutDashboard, label:'Dashboard'    },
-  { to:'/inventory',  icon:Package,         label:'Inventario'   },
-  { to:'/production', icon:Factory,         label:'Producción'   },
-  { to:'/sales',      icon:ShoppingCart,    label:'Ventas'       },
-  { to:'/quotations', icon:FileText,        label:'Cotizaciones'  },
-  { to:'/purchases',  icon:Truck,           label:'Compras'      },
-  { to:'/crm',        icon:Users,           label:'Clientes'     },
-  { to:'/catalog',    icon:BookOpen,        label:'Catálogo'     },
-  { to:'/reports',    icon:BarChart3,       label:'Reportes'     },
-  { to:'/settings',   icon:Settings,        label:'Configuración'},
-]
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',      category: null },
+  { to: '/inventory',  icon: Package,         label: 'Inventario',     category: 'inventory' },
+  { to: '/production', icon: Factory,         label: 'Producción',     category: 'production' },
+  { to: '/sales',      icon: ShoppingCart,    label: 'Ventas',         category: 'sales' },
+  { to: '/quotations', icon: FileText,        label: 'Cotizaciones',   category: 'sales' },
+  { to: '/purchases',  icon: Truck,           label: 'Compras',        category: 'purchases' },
+  { to: '/crm',        icon: Users,           label: 'Clientes',       category: 'crm' },
+  { to: '/catalog',    icon: BookOpen,        label: 'Catálogo',       category: null },
+  { to: '/reports',    icon: BarChart3,       label: 'Reportes',       category: null },
+  { to: '/settings',   icon: Settings,        label: 'Configuración',  category: null },
+] as const
 
 export default function Sidebar() {
-  const { sidebarOpen, setSidebarOpen, user, logout, companySettings } = useStore()
+  const { sidebarOpen, setSidebarOpen, user, logout, companySettings, notifications } = useStore()
   const navigate = useNavigate()
+
+  // Count unread notifications per category (only unread)
+  const badgeCounts = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const n of notifications) {
+      if (!n.read) map[n.category] = (map[n.category] ?? 0) + 1
+    }
+    return map
+  }, [notifications])
 
   const handleLogout = () => {
     logout()
@@ -78,19 +88,38 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {nav.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'active' : 'text-amazonia-300 hover:text-white'}`
-            }
-            title={!sidebarOpen ? label : undefined}
-          >
-            <Icon size={18} className="flex-shrink-0" />
-            {sidebarOpen && <span className="animate-slideIn">{label}</span>}
-          </NavLink>
-        ))}
+        {nav.map(({ to, icon: Icon, label, category }) => {
+          const badgeCount = category ? (badgeCounts[category] ?? 0) : 0
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `sidebar-link ${isActive ? 'active' : 'text-amazonia-300 hover:text-white'}`
+              }
+              title={!sidebarOpen ? label : undefined}
+            >
+              <div className="relative flex-shrink-0">
+                <Icon size={18} />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] rounded-full flex items-center justify-center font-bold leading-none">
+                    {badgeCount > 9 ? '9+' : badgeCount}
+                  </span>
+                )}
+              </div>
+              {sidebarOpen && (
+                <span className="animate-slideIn flex-1 flex items-center justify-between">
+                  {label}
+                  {badgeCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full leading-none">
+                      {badgeCount}
+                    </span>
+                  )}
+                </span>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* User + Logout */}
