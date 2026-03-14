@@ -13,6 +13,7 @@ import Catalog from './pages/Catalog'
 import Settings from './pages/Settings'
 import Quotations from './pages/Quotations'
 import PurchaseOrders from './pages/PurchaseOrders'
+import DispatchPage from './pages/Dispatch'
 import { useStore } from './store/useStore'
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/catalog"     element={<Catalog />} />
           <Route path="/quotations"  element={<Quotations />} />
           <Route path="/purchases"   element={<PurchaseOrders />} />
+          <Route path="/dispatch"    element={<DispatchPage />} />
           <Route path="/settings"    element={<Settings />} />
           <Route path="*"            element={<Navigate to="/dashboard" replace />} />
         </Route>

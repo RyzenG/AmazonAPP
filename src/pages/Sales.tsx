@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle, Receipt, Loader2 } from 'lucide-react'
+import { Plus, Search, X, ShoppingCart, DollarSign, Clock, CheckCircle, Trash2, Printer, FileText, Mail, Send, Copy, MessageCircle, Receipt, Loader2, Truck } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { SaleOrder } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -656,7 +656,8 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 }
 
 export default function Sales() {
-  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, generateInvoice, companySettings } = useStore()
+  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, generateInvoice, dispatches, companySettings } = useStore()
+  const navigate = useNavigate()
   const { canDelete } = usePermissions()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch]         = useState('')
@@ -868,6 +869,23 @@ export default function Sales() {
                       }
                       {o.invoiceNumber ? o.invoiceNumber.split('-').pop() : 'FAC'}
                     </button>
+                    {/* Despachar: show when order is confirmed or processing */}
+                    {['confirmed','processing'].includes(o.status) && (() => {
+                      const hasDispatch = dispatches.some((d) => d.saleOrderId === o.id)
+                      return (
+                        <button
+                          className={`btn btn-sm flex items-center gap-1 ${
+                            hasDispatch
+                              ? 'text-blue-700 border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-400'
+                              : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                          }`}
+                          title={hasDispatch ? 'Ver despacho' : 'Crear despacho'}
+                          onClick={() => navigate(`/dispatch`)}
+                        >
+                          <Truck size={12} />
+                        </button>
+                      )
+                    })()}
                     <button className="btn btn-sm flex items-center gap-1 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
                       onClick={() => handleDuplicate(o)} title="Duplicar orden">
                       <Copy size={12} />

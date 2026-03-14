@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Factory, ShoppingCart,
   Users, BarChart3, BookOpen, Settings, ChevronLeft, ChevronRight,
-  Leaf, LogOut, FileText, Truck,
+  Leaf, LogOut, FileText, Truck, Navigation,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { useMemo } from 'react'
@@ -14,6 +14,7 @@ const nav = [
   { to: '/sales',      icon: ShoppingCart,    label: 'Ventas',         category: 'sales' },
   { to: '/quotations', icon: FileText,        label: 'Cotizaciones',   category: 'sales' },
   { to: '/purchases',  icon: Truck,           label: 'Compras',        category: 'purchases' },
+  { to: '/dispatch',   icon: Navigation,      label: 'Despachos',      category: 'dispatch' },
   { to: '/crm',        icon: Users,           label: 'Clientes',       category: 'crm' },
   { to: '/catalog',    icon: BookOpen,        label: 'Catálogo',       category: null },
   { to: '/reports',    icon: BarChart3,       label: 'Reportes',       category: null },

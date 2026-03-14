@@ -57,6 +57,26 @@ export interface SaleOrder {
   invoiceDate?:   string   // ISO date when invoice was generated
 }
 
+export interface Dispatch {
+  id:              string
+  dispatchNumber:  string   // DSP-2025-0001
+  saleOrderId:     string
+  saleOrderNumber: string
+  customer:        string
+  customerId:      string
+  address?:        string
+  scheduledDate:   string   // ISO date
+  scheduledTime?:  string   // HH:MM
+  driver:          string
+  vehiclePlate?:   string
+  status:          'scheduled' | 'in_transit' | 'delivered' | 'failed' | 'cancelled'
+  deliveredAt?:    string   // ISO date
+  deliveryNotes?:  string
+  items:           { product: string; qty: number }[]
+  total:           number
+  date:            string   // creation date
+}
+
 export interface PurchaseOrderItem {
   supplyId: string
   supplyName: string

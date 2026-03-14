@@ -17,6 +17,7 @@ import auditLogRouter       from './routes/auditLog.js'
 import quotationsRouter          from './routes/quotations.js'
 import customerActivitiesRouter  from './routes/customerActivities.js'
 import purchaseOrdersRouter      from './routes/purchaseOrders.js'
+import dispatchesRouter          from './routes/dispatches.js'
 
 dotenv.config()
 
@@ -91,6 +92,26 @@ async function migrate() {
         notes         TEXT DEFAULT '',
         created_at    TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS dispatches (
+        id                  TEXT PRIMARY KEY,
+        dispatch_number     TEXT,
+        sale_order_id       TEXT DEFAULT '',
+        sale_order_number   TEXT DEFAULT '',
+        customer            TEXT NOT NULL DEFAULT '',
+        customer_id         TEXT DEFAULT '',
+        address             TEXT DEFAULT '',
+        scheduled_date      DATE NOT NULL,
+        scheduled_time      TEXT DEFAULT '',
+        driver              TEXT DEFAULT '',
+        vehicle_plate       TEXT DEFAULT '',
+        status              TEXT NOT NULL DEFAULT 'scheduled',
+        delivered_at        DATE,
+        delivery_notes      TEXT DEFAULT '',
+        items               JSONB NOT NULL DEFAULT '[]',
+        total               NUMERIC(14,2) DEFAULT 0,
+        date                DATE NOT NULL,
+        created_at          TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS customer_activities (
         id          TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
@@ -160,6 +181,7 @@ app.use('/api/audit',             auditLogRouter)
 app.use('/api/quotations',        quotationsRouter)
 app.use('/api/customer-activities', customerActivitiesRouter)
 app.use('/api/purchase-orders',    purchaseOrdersRouter)
+app.use('/api/dispatches',         dispatchesRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

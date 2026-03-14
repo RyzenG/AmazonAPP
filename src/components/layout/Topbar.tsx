@@ -1,6 +1,6 @@
 import {
   Bell, Search, AlertTriangle, Info, CheckCircle, XCircle,
-  Sun, Moon, Check, Trash2, LogOut, Package, Truck, ShoppingCart, Users, Factory,
+  Sun, Moon, Check, Trash2, LogOut, Package, Truck, ShoppingCart, Users, Factory, Navigation,
 } from 'lucide-react'
 import { useStore, NotifCategory } from '../../store/useStore'
 import { useState } from 'react'
@@ -42,6 +42,7 @@ const CATEGORY_META: Record<NotifCategory, { label: string; icon: React.ElementT
   sales:      { label: 'Ventas',      icon: ShoppingCart, color: 'text-emerald-600 dark:text-emerald-400' },
   crm:        { label: 'CRM',         icon: Users,        color: 'text-rose-600 dark:text-rose-400' },
   production: { label: 'Producción',  icon: Factory,      color: 'text-amber-600 dark:text-amber-400' },
+  dispatch:   { label: 'Despachos',  icon: Navigation,   color: 'text-blue-600 dark:text-blue-400' },
   general:    { label: 'General',     icon: Info,         color: 'text-slate-600 dark:text-slate-400' },
 }
 

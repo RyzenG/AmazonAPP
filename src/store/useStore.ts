@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import {
   Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation, CustomerActivity,
-  PurchaseOrder,
+  PurchaseOrder, Dispatch,
 } from '../data/mockData'
 
-export type NotifCategory = 'inventory' | 'purchases' | 'sales' | 'crm' | 'production' | 'general'
+export type NotifCategory = 'inventory' | 'purchases' | 'sales' | 'crm' | 'production' | 'dispatch' | 'general'
 
 export interface Notification {
   id: string
@@ -62,6 +62,7 @@ interface AppState {
   quotations:       Quotation[]
   activities:       CustomerActivity[]
   purchaseOrders:   PurchaseOrder[]
+  dispatches:       Dispatch[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -119,6 +120,9 @@ interface AppState {
   updatePurchaseOrder:  (o: PurchaseOrder) => Promise<void>
   deletePurchaseOrder:  (id: string)       => Promise<void>
   receivePurchaseOrder: (id: string, receivedQty: Record<string, number>) => Promise<void>
+  addDispatch:    (d: Dispatch) => Promise<void>
+  updateDispatch: (d: Dispatch) => Promise<void>
+  deleteDispatch: (id: string)  => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -220,6 +224,7 @@ export const useStore = create<AppState>((set, get) => ({
   quotations:       [],
   activities:       [],
   purchaseOrders:   [],
+  dispatches:       [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -234,7 +239,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().dataLoaded && !force) return
     if (force) set({ dataLoaded: false })
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders, dispatches] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -246,6 +251,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<Quotation[]>('/api/quotations'),
           apiFetch<CustomerActivity[]>('/api/customer-activities'),
           apiFetch<PurchaseOrder[]>('/api/purchase-orders'),
+          apiFetch<Dispatch[]>('/api/dispatches'),
         ])
 
       const companySettings: CompanySettings = {
@@ -275,7 +281,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, dispatches, companySettings, dataLoaded: true })
       // Run smart alerts after data is ready
       get().checkAlerts()
     } catch (e) {
@@ -557,6 +563,19 @@ export const useStore = create<AppState>((set, get) => ({
     set(() => ({ purchaseOrders: s.purchaseOrders.map((x) => x.id === id ? updated : x), supplies: updatedSupplies }))
     // Re-run alerts: stock levels changed after receiving
     setTimeout(() => get().checkAlerts(), 0)
+  },
+
+  addDispatch: async (d) => {
+    await apiFetch('/api/dispatches', { method: 'POST', body: JSON.stringify(d) })
+    set((s) => ({ dispatches: [d, ...s.dispatches] }))
+  },
+  updateDispatch: async (d) => {
+    await apiFetch(`/api/dispatches/${d.id}`, { method: 'PUT', body: JSON.stringify(d) })
+    set((s) => ({ dispatches: s.dispatches.map((x) => x.id === d.id ? d : x) }))
+  },
+  deleteDispatch: async (id) => {
+    await apiFetch(`/api/dispatches/${id}`, { method: 'DELETE' })
+    set((s) => ({ dispatches: s.dispatches.filter((x) => x.id !== id) }))
   },
 
   // ── Smart alerts engine ────────────────────────────────────────────────────
