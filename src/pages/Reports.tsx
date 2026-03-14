@@ -3,7 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { FileText, FileSpreadsheet, TrendingUp, BarChart3, PieChart as PieIcon, ShoppingCart, Package, Factory, Calendar, X } from 'lucide-react'
+import { FileText, FileSpreadsheet, TrendingUp, BarChart3, PieChart as PieIcon, ShoppingCart, Package, Factory, Calendar, X, TrendingDown, DollarSign } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { formatCOP } from '../utils/currency'
 import jsPDF from 'jspdf'
@@ -45,7 +45,7 @@ function getPeriodDates(period: Period, customFrom: string, customTo: string): {
 }
 
 export default function Reports() {
-  const { saleOrders, supplies, productionOrders, products, darkMode } = useStore()
+  const { saleOrders, supplies, productionOrders, products, expenses, darkMode } = useStore()
 
   const [period, setPeriod]       = useState<Period>('month')
   const [customFrom, setCustomFrom] = useState('')
@@ -69,6 +69,47 @@ export default function Reports() {
   const totalRevenue = filteredOrders.reduce((a,o) => a + o.total, 0)
   const totalCost    = productionOrders.reduce((a,o) => a + (o.actualCost ?? o.estimatedCost ?? 0), 0)
   const grossMargin  = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue * 100) : 0
+
+  // P&L — filter expenses to the same period as orders
+  const filteredExpenses = useMemo(() => {
+    if (!from && !to) return expenses
+    return expenses.filter((e) => {
+      const d = new Date(e.date + 'T12:00:00')
+      if (from && d < from) return false
+      if (to   && d > to)   return false
+      return true
+    })
+  }, [expenses, from, to])
+
+  const totalExpenses   = filteredExpenses.reduce((a, e) => a + e.amount, 0)
+  const grossProfit     = totalRevenue - totalCost
+  const netProfit       = grossProfit - totalExpenses
+  const netMargin       = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0
+
+  // Expenses by category (filtered)
+  const expenseByCategory = useMemo(() => {
+    const byCat: Record<string, number> = {}
+    filteredExpenses.forEach((e) => { byCat[e.category] = (byCat[e.category] ?? 0) + e.amount })
+    return Object.entries(byCat).sort((a,b) => b[1] - a[1]).map(([name, value]) => ({ name, value }))
+  }, [filteredExpenses])
+
+  // Monthly P&L chart — last 6 months
+  const plMonthlyData = useMemo(() => {
+    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    const today  = new Date()
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`
+      const label = `${MONTHS[d.getMonth()]} ${d.getFullYear() !== today.getFullYear() ? d.getFullYear() : ''}`
+      const revenue = saleOrders
+        .filter((o) => o.date?.startsWith(key))
+        .reduce((a, o) => a + o.total, 0)
+      const expTotal = expenses
+        .filter((e) => e.date?.startsWith(key))
+        .reduce((a, e) => a + e.amount, 0)
+      return { label: label.trim(), ingresos: Math.round(revenue), egresos: Math.round(expTotal), utilidad: Math.round(revenue - expTotal) }
+    })
+  }, [saleOrders, expenses])
 
   const lowStockItems  = supplies.filter((s) => s.stock < s.minStock)
   const inventoryValue = supplies.reduce((a,s) => a + s.stock * s.cost, 0)
@@ -316,6 +357,114 @@ export default function Reports() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── P&L Section ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <DollarSign size={18} className="text-emerald-600" />
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white">Resultado Financiero (P&L)</h2>
+        </div>
+
+        {/* P&L KPI cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Ingresos', value: totalRevenue, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20', icon: TrendingUp, sign: '' },
+            { label: 'Costo de producción', value: totalCost, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20', icon: TrendingDown, sign: '— ' },
+            { label: 'Gastos operativos', value: totalExpenses, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', icon: TrendingDown, sign: '— ' },
+            {
+              label: 'Utilidad neta',
+              value: netProfit,
+              color: netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400',
+              bg:    netProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20',
+              icon: TrendingUp, sign: '',
+            },
+          ].map((kpi) => (
+            <div key={kpi.label} className="card p-4">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${kpi.bg}`}>
+                <kpi.icon size={15} className={kpi.color} />
+              </div>
+              <p className="text-xs text-slate-500 dark:text-gray-400">{kpi.label}</p>
+              <p className={`text-lg font-bold ${kpi.color}`}>{kpi.sign}{formatCOP(Math.abs(kpi.value))}</p>
+              {kpi.label === 'Utilidad neta' && (
+                <p className={`text-xs mt-0.5 ${netMargin >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  Margen: {netMargin.toFixed(1)}%
+                </p>
+              )}
+              {kpi.label === 'Ingresos' && (
+                <p className="text-xs text-slate-400 mt-0.5">Margen bruto: {grossMargin.toFixed(1)}%</p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* P&L statement (simplified) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Statement */}
+          <div className="card p-5">
+            <h3 className="font-semibold text-slate-700 dark:text-gray-200 mb-4 text-sm">Estado de resultados</h3>
+            <div className="space-y-2 text-sm">
+              {[
+                { label: 'Ingresos por ventas', val: totalRevenue, cls: 'text-blue-600 dark:text-blue-400', bold: false },
+                { label: '  Costo de ventas', val: -totalCost, cls: 'text-slate-600 dark:text-gray-300', bold: false },
+                { label: 'Utilidad bruta', val: grossProfit, cls: grossProfit >= 0 ? 'text-emerald-600' : 'text-red-500', bold: true },
+                { label: '  Gastos operativos', val: -totalExpenses, cls: 'text-slate-600 dark:text-gray-300', bold: false },
+                { label: 'UTILIDAD NETA', val: netProfit, cls: netProfit >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400', bold: true },
+              ].map((row) => (
+                <div key={row.label} className={`flex justify-between py-1.5 border-b border-slate-100 dark:border-gray-700 last:border-0 last:pt-2 ${row.bold ? 'font-bold' : ''}`}>
+                  <span className="text-slate-600 dark:text-gray-300">{row.label}</span>
+                  <span className={row.cls}>{row.val < 0 ? '— ' : ''}{formatCOP(Math.abs(row.val))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Expense breakdown pie */}
+          <div className="card p-5">
+            <h3 className="font-semibold text-slate-700 dark:text-gray-200 mb-4 text-sm">Gastos por categoría</h3>
+            {expenseByCategory.length === 0
+              ? EMPTY_STATE(<TrendingDown size={28} className="opacity-30" />, 'Sin gastos en el período')
+              : (
+                <div className="space-y-2">
+                  {expenseByCategory.map(({ name, value }) => {
+                    const pct = totalExpenses > 0 ? (value / totalExpenses * 100) : 0
+                    return (
+                      <div key={name}>
+                        <div className="flex justify-between text-xs text-slate-600 dark:text-gray-300 mb-1">
+                          <span>{name}</span>
+                          <span className="font-semibold">{formatCOP(value)} <span className="text-slate-400">({pct.toFixed(0)}%)</span></span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-1.5">
+                          <div className="bg-red-400 h-1.5 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            }
+          </div>
+        </div>
+
+        {/* Monthly P&L bar chart */}
+        <div className="card p-5">
+          <h3 className="font-semibold text-slate-700 dark:text-gray-200 mb-1 text-sm">Ingresos vs Egresos — últimos 6 meses</h3>
+          <p className="text-xs text-slate-400 dark:text-gray-500 mb-4">Ingresos (azul), Gastos operativos (rojo), Utilidad (verde)</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={plMonthlyData} barGap={3}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+              <XAxis dataKey="label" tick={{ fill: tickColor, fontSize: 11 }} />
+              <YAxis tick={{ fill: tickColor, fontSize: 10 }} tickFormatter={(v) => `$${(v/1000000).toFixed(1)}M`} />
+              <Tooltip
+                formatter={(v: number) => formatCOP(v)}
+                contentStyle={{ background: darkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: 8, fontSize: 12 }}
+              />
+              <Bar dataKey="ingresos"  name="Ingresos"  fill="#2563eb" radius={[4,4,0,0]} />
+              <Bar dataKey="egresos"   name="Egresos"   fill="#ef4444" radius={[4,4,0,0]} />
+              <Bar dataKey="utilidad"  name="Utilidad"  fill="#10b981" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Sales trend */}

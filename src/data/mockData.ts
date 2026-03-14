@@ -57,6 +57,23 @@ export interface SaleOrder {
   invoiceDate?:   string   // ISO date when invoice was generated
 }
 
+export type ExpenseCategory =
+  | 'Nómina' | 'Arriendo' | 'Servicios públicos' | 'Transporte'
+  | 'Marketing' | 'Materiales' | 'Mantenimiento' | 'Impuestos' | 'Otros'
+
+export interface Expense {
+  id:            string
+  date:          string          // ISO date
+  category:      ExpenseCategory
+  description:   string
+  amount:        number
+  beneficiary?:  string          // supplier / employee
+  paymentMethod: string
+  notes?:        string
+  recurring:     boolean
+  period?:       'once' | 'weekly' | 'monthly' | 'annual'
+}
+
 export interface Dispatch {
   id:              string
   dispatchNumber:  string   // DSP-2025-0001

@@ -18,6 +18,7 @@ import quotationsRouter          from './routes/quotations.js'
 import customerActivitiesRouter  from './routes/customerActivities.js'
 import purchaseOrdersRouter      from './routes/purchaseOrders.js'
 import dispatchesRouter          from './routes/dispatches.js'
+import expensesRouter            from './routes/expenses.js'
 
 dotenv.config()
 
@@ -112,6 +113,19 @@ async function migrate() {
         date                DATE NOT NULL,
         created_at          TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS expenses (
+        id             TEXT PRIMARY KEY,
+        date           DATE NOT NULL,
+        category       TEXT NOT NULL DEFAULT 'Otros',
+        description    TEXT NOT NULL DEFAULT '',
+        amount         NUMERIC(14,2) NOT NULL DEFAULT 0,
+        beneficiary    TEXT DEFAULT '',
+        payment_method TEXT DEFAULT 'Transferencia',
+        notes          TEXT DEFAULT '',
+        recurring      BOOLEAN DEFAULT FALSE,
+        period         TEXT DEFAULT 'once',
+        created_at     TIMESTAMP DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS customer_activities (
         id          TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
@@ -182,6 +196,7 @@ app.use('/api/quotations',        quotationsRouter)
 app.use('/api/customer-activities', customerActivitiesRouter)
 app.use('/api/purchase-orders',    purchaseOrdersRouter)
 app.use('/api/dispatches',         dispatchesRouter)
+app.use('/api/expenses',           expensesRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import {
   Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation, CustomerActivity,
-  PurchaseOrder, Dispatch,
+  PurchaseOrder, Dispatch, Expense,
 } from '../data/mockData'
 
 export type NotifCategory = 'inventory' | 'purchases' | 'sales' | 'crm' | 'production' | 'dispatch' | 'general'
@@ -63,6 +63,7 @@ interface AppState {
   activities:       CustomerActivity[]
   purchaseOrders:   PurchaseOrder[]
   dispatches:       Dispatch[]
+  expenses:         Expense[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -123,6 +124,9 @@ interface AppState {
   addDispatch:    (d: Dispatch) => Promise<void>
   updateDispatch: (d: Dispatch) => Promise<void>
   deleteDispatch: (id: string)  => Promise<void>
+  addExpense:     (e: Expense)  => Promise<void>
+  updateExpense:  (e: Expense)  => Promise<void>
+  deleteExpense:  (id: string)  => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -225,6 +229,7 @@ export const useStore = create<AppState>((set, get) => ({
   activities:       [],
   purchaseOrders:   [],
   dispatches:       [],
+  expenses:         [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -239,7 +244,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().dataLoaded && !force) return
     if (force) set({ dataLoaded: false })
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders, dispatches] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders, dispatches, expenses] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -252,6 +257,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<CustomerActivity[]>('/api/customer-activities'),
           apiFetch<PurchaseOrder[]>('/api/purchase-orders'),
           apiFetch<Dispatch[]>('/api/dispatches'),
+          apiFetch<Expense[]>('/api/expenses'),
         ])
 
       const companySettings: CompanySettings = {
@@ -281,7 +287,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, dispatches, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, dispatches, expenses, companySettings, dataLoaded: true })
       // Run smart alerts after data is ready
       get().checkAlerts()
     } catch (e) {
@@ -576,6 +582,18 @@ export const useStore = create<AppState>((set, get) => ({
   deleteDispatch: async (id) => {
     await apiFetch(`/api/dispatches/${id}`, { method: 'DELETE' })
     set((s) => ({ dispatches: s.dispatches.filter((x) => x.id !== id) }))
+  },
+  addExpense: async (e) => {
+    await apiFetch('/api/expenses', { method: 'POST', body: JSON.stringify(e) })
+    set((s) => ({ expenses: [e, ...s.expenses] }))
+  },
+  updateExpense: async (e) => {
+    await apiFetch(`/api/expenses/${e.id}`, { method: 'PUT', body: JSON.stringify(e) })
+    set((s) => ({ expenses: s.expenses.map((x) => x.id === e.id ? e : x) }))
+  },
+  deleteExpense: async (id) => {
+    await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' })
+    set((s) => ({ expenses: s.expenses.filter((x) => x.id !== id) }))
   },
 
   // ── Smart alerts engine ────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import Settings from './pages/Settings'
 import Quotations from './pages/Quotations'
 import PurchaseOrders from './pages/PurchaseOrders'
 import DispatchPage from './pages/Dispatch'
+import ExpensesPage from './pages/Expenses'
 import { useStore } from './store/useStore'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/quotations"  element={<Quotations />} />
           <Route path="/purchases"   element={<PurchaseOrders />} />
           <Route path="/dispatch"    element={<DispatchPage />} />
+          <Route path="/expenses"    element={<ExpensesPage />} />
           <Route path="/settings"    element={<Settings />} />
           <Route path="*"            element={<Navigate to="/dashboard" replace />} />
         </Route>
