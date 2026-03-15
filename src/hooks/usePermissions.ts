@@ -1,6 +1,6 @@
 import { useStore } from '../store/useStore'
 
-export type AppModule = 'supplies' | 'products' | 'customers' | 'sales' | 'production'
+export type AppModule = 'supplies' | 'products' | 'customers' | 'sales' | 'production' | 'crm'
 
 interface RolePerms {
   edit:   AppModule[]
@@ -10,16 +10,16 @@ interface RolePerms {
 // Only Administrador can delete. Other roles can edit within their scope.
 const ROLE_PERMS: Record<string, RolePerms> = {
   Administrador: {
-    edit:   ['supplies','products','customers','sales','production'],
-    delete: ['supplies','products','customers','sales','production'],
+    edit:   ['supplies','products','customers','sales','production','crm'],
+    delete: ['supplies','products','customers','sales','production','crm'],
   },
   Producción: {
     edit:   ['production','supplies'],
     delete: [],
   },
   Ventas: {
-    edit:   ['sales','customers'],
-    delete: [],
+    edit:   ['sales','customers','crm'],
+    delete: ['crm'],
   },
   Inventario: {
     edit:   ['supplies','products'],

@@ -57,6 +57,25 @@ export interface SaleOrder {
   invoiceDate?:   string   // ISO date when invoice was generated
 }
 
+export type PipelineStage = 'lead' | 'contacted' | 'quoted' | 'negotiating' | 'won' | 'lost'
+
+export interface Opportunity {
+  id:               string
+  title:            string         // short opportunity name
+  customerId:       string
+  customer:         string
+  stage:            PipelineStage
+  value:            number         // estimated $ value
+  probability:      number         // 0-100
+  expectedClose?:   string         // ISO date
+  assignedTo?:      string
+  quotationId?:     string         // linked quotation
+  notes?:           string
+  lostReason?:      string
+  createdAt:        string         // ISO date
+  updatedAt:        string
+}
+
 export type ExpenseCategory =
   | 'Nómina' | 'Arriendo' | 'Servicios públicos' | 'Transporte'
   | 'Marketing' | 'Materiales' | 'Mantenimiento' | 'Impuestos' | 'Otros'

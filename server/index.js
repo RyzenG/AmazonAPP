@@ -19,6 +19,7 @@ import customerActivitiesRouter  from './routes/customerActivities.js'
 import purchaseOrdersRouter      from './routes/purchaseOrders.js'
 import dispatchesRouter          from './routes/dispatches.js'
 import expensesRouter            from './routes/expenses.js'
+import opportunitiesRouter       from './routes/opportunities.js'
 
 dotenv.config()
 
@@ -126,6 +127,22 @@ async function migrate() {
         period         TEXT DEFAULT 'once',
         created_at     TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS opportunities (
+        id             TEXT PRIMARY KEY,
+        title          TEXT NOT NULL DEFAULT '',
+        customer_id    TEXT DEFAULT '',
+        customer       TEXT NOT NULL DEFAULT '',
+        stage          TEXT NOT NULL DEFAULT 'lead',
+        value          NUMERIC(14,2) DEFAULT 0,
+        probability    INTEGER DEFAULT 50,
+        expected_close DATE,
+        assigned_to    TEXT DEFAULT '',
+        quotation_id   TEXT DEFAULT '',
+        notes          TEXT DEFAULT '',
+        lost_reason    TEXT DEFAULT '',
+        created_at     DATE NOT NULL,
+        updated_at     DATE NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS customer_activities (
         id          TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
@@ -197,6 +214,7 @@ app.use('/api/customer-activities', customerActivitiesRouter)
 app.use('/api/purchase-orders',    purchaseOrdersRouter)
 app.use('/api/dispatches',         dispatchesRouter)
 app.use('/api/expenses',           expensesRouter)
+app.use('/api/opportunities',      opportunitiesRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
