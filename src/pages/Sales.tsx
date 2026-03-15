@@ -10,6 +10,7 @@ import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
 import FacturaModal from '../components/InvoiceModal'
 import { formatCOP } from '../utils/currency'
+import { openWhatsApp, buildOrderConfirmation, buildPaymentReminder, getBankInfo } from '../utils/whatsapp'
 
 const STATUS_BADGE: Record<string, string> = {
   pending:'badge-yellow', confirmed:'badge-blue', processing:'badge-blue',
@@ -194,7 +195,8 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
 }
 
 function OrderDetail({ order, onClose, onInvoice }: { order: SaleOrder; onClose: () => void; onInvoice: () => void }) {
-  const { updateSaleOrder } = useStore()
+  const { updateSaleOrder, customers, companySettings } = useStore()
+  const customer = customers.find(c => c.id === order.customerId)
   const [localOrder, setLocalOrder] = useState(order)
 
   const update = (patch: Partial<SaleOrder>) => {
@@ -280,6 +282,43 @@ function OrderDetail({ order, onClose, onInvoice }: { order: SaleOrder; onClose:
           <button className="btn btn-secondary w-full flex items-center justify-center gap-2" onClick={onInvoice}>
             <FileText size={15} /> Ver Factura
           </button>
+
+          {/* WhatsApp Actions */}
+          {customer?.phone && (
+            <div className="flex gap-2">
+              <button
+                className="flex-1 btn flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+                onClick={() => openWhatsApp(customer.phone, buildOrderConfirmation({
+                  companyName: companySettings.companyName,
+                  customer: localOrder.customer,
+                  phone: customer.phone,
+                  orderNumber: localOrder.orderNumber,
+                  date: localOrder.date,
+                  total: localOrder.total,
+                  paymentMethod: localOrder.paymentMethod,
+                  items: localOrder.items,
+                  deliveryDate: localOrder.deliveryDate,
+                  bankInfo: getBankInfo(companySettings),
+                }))}>
+                <MessageCircle size={15} /> Confirmar pedido
+              </button>
+              {localOrder.paymentStatus !== 'paid' && (
+                <button
+                  className="flex-1 btn flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                  onClick={() => openWhatsApp(customer.phone, buildPaymentReminder({
+                    companyName: companySettings.companyName,
+                    customer: localOrder.customer,
+                    orderNumber: localOrder.orderNumber,
+                    date: localOrder.date,
+                    total: localOrder.total,
+                    paymentStatus: localOrder.paymentStatus,
+                    bankInfo: getBankInfo(companySettings),
+                  }))}>
+                  <DollarSign size={15} /> Cobrar pago
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -656,7 +695,7 @@ function InvoiceModal({ order, onClose }: { order: SaleOrder; onClose: () => voi
 }
 
 export default function Sales() {
-  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, generateInvoice, dispatches, companySettings } = useStore()
+  const { saleOrders, deleteSaleOrder, addSaleOrder, updateSaleOrder, generateInvoice, dispatches, companySettings, customers } = useStore()
   const navigate = useNavigate()
   const { canDelete } = usePermissions()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -883,6 +922,30 @@ export default function Sales() {
                           onClick={() => navigate(`/dispatch`)}
                         >
                           <Truck size={12} />
+                        </button>
+                      )
+                    })()}
+                    {(() => {
+                      const cust = customers.find(c => c.id === o.customerId)
+                      if (!cust?.phone) return null
+                      return o.paymentStatus !== 'paid' ? (
+                        <button className="btn btn-sm flex items-center gap-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800"
+                          onClick={() => openWhatsApp(cust.phone, buildPaymentReminder({
+                            companyName: companySettings.companyName, customer: o.customer,
+                            orderNumber: o.orderNumber, date: o.date, total: o.total,
+                            paymentStatus: o.paymentStatus, bankInfo: getBankInfo(companySettings),
+                          }))} title="Cobrar por WhatsApp">
+                          <MessageCircle size={12} />
+                        </button>
+                      ) : (
+                        <button className="btn btn-sm flex items-center gap-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800"
+                          onClick={() => openWhatsApp(cust.phone, buildOrderConfirmation({
+                            companyName: companySettings.companyName, customer: o.customer,
+                            phone: cust.phone, orderNumber: o.orderNumber, date: o.date,
+                            total: o.total, paymentMethod: o.paymentMethod, items: o.items,
+                            deliveryDate: o.deliveryDate, bankInfo: getBankInfo(companySettings),
+                          }))} title="Enviar confirmación por WhatsApp">
+                          <MessageCircle size={12} />
                         </button>
                       )
                     })()}

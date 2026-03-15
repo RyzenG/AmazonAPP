@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Truck, Plus, Search, X, CheckCircle2, Clock, AlertCircle, Package2,
   MapPin, User, Calendar, Trash2, ChevronDown, ChevronUp, Send, Ban,
-  Navigation, ReceiptText,
+  Navigation, ReceiptText, MessageCircle,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Dispatch } from '../data/mockData'
@@ -10,6 +10,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { formatCOP } from '../utils/currency'
 import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
+import { openWhatsApp, buildDispatchNotification, buildDeliveryConfirmation } from '../utils/whatsapp'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DRIVERS = ['Carlos López', 'Miguel Herrera', 'Andrés Ruiz', 'Pedro Díaz', 'Juan Martínez']
@@ -231,7 +232,8 @@ function DispatchModal({ initial, onClose }: { initial?: Dispatch; onClose: () =
 
 // ── Dispatch Detail Drawer ────────────────────────────────────────────────────
 function DispatchDrawer({ d, onClose, onEdit }: { d: Dispatch; onClose: () => void; onEdit: () => void }) {
-  const { updateDispatch } = useStore()
+  const { updateDispatch, customers, companySettings } = useStore()
+  const customer = customers.find(c => c.id === d.customerId)
   const [expanded, setExpanded] = useState(true)
   const [delivering, setDelivering] = useState(false)
   const [notes, setNotes] = useState(d.deliveryNotes ?? '')
@@ -383,6 +385,32 @@ function DispatchDrawer({ d, onClose, onEdit }: { d: Dispatch; onClose: () => vo
             )}
             <button onClick={onEdit}
               className="w-full btn btn-secondary">Editar despacho</button>
+            {customer?.phone && d.status === 'scheduled' && (
+              <button
+                className="w-full btn flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+                onClick={() => openWhatsApp(customer.phone, buildDispatchNotification({
+                  companyName: companySettings.companyName, customer: d.customer,
+                  dispatchNumber: d.dispatchNumber, orderNumber: d.saleOrderNumber,
+                  scheduledDate: d.scheduledDate, scheduledTime: d.scheduledTime,
+                  driver: d.driver, address: d.address, items: d.items,
+                }))}>
+                <MessageCircle size={14} /> Notificar despacho por WhatsApp
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* WhatsApp delivery confirmation */}
+        {customer?.phone && d.status === 'delivered' && (
+          <div className="px-6 pb-6">
+            <button
+              className="w-full btn flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800"
+              onClick={() => openWhatsApp(customer.phone, buildDeliveryConfirmation({
+                companyName: companySettings.companyName, customer: d.customer,
+                dispatchNumber: d.dispatchNumber, deliveredAt: d.deliveredAt || d.scheduledDate,
+              }))}>
+              <MessageCircle size={14} /> Confirmar entrega por WhatsApp
+            </button>
           </div>
         )}
       </div>
@@ -394,7 +422,7 @@ function DispatchDrawer({ d, onClose, onEdit }: { d: Dispatch; onClose: () => vo
 const PAGE_SIZE = 15
 
 export default function DispatchPage() {
-  const { dispatches, deleteDispatch } = useStore()
+  const { dispatches, deleteDispatch, customers, companySettings } = useStore()
   const { canDelete } = usePermissions()
 
   const [search, setSearch]         = useState('')
@@ -561,6 +589,21 @@ export default function DispatchPage() {
                         {!['delivered','cancelled'].includes(d.status) && (
                           <button className="btn btn-sm btn-secondary" onClick={() => { setEditTarget(d) }}>Editar</button>
                         )}
+                        {(() => {
+                          const cust = customers.find(c => c.id === d.customerId)
+                          if (!cust?.phone || !['scheduled','in_transit'].includes(d.status)) return null
+                          return (
+                            <button className="btn btn-sm flex items-center gap-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800"
+                              onClick={() => openWhatsApp(cust.phone, buildDispatchNotification({
+                                companyName: companySettings.companyName, customer: d.customer,
+                                dispatchNumber: d.dispatchNumber, orderNumber: d.saleOrderNumber,
+                                scheduledDate: d.scheduledDate, scheduledTime: d.scheduledTime,
+                                driver: d.driver, address: d.address, items: d.items,
+                              }))} title="Notificar por WhatsApp">
+                              <MessageCircle size={12} />
+                            </button>
+                          )
+                        })()}
                         {canDelete('sales') && (
                           <button className="btn btn-sm flex items-center gap-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800"
                             onClick={() => setDeleteTarget(d)}>

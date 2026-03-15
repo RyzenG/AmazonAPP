@@ -12,6 +12,7 @@ import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 import * as XLSX from 'xlsx'
+import { openWhatsApp, buildFollowUp, buildPaymentReminder, getBankInfo } from '../utils/whatsapp'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -254,7 +255,7 @@ function CustomerDrawer({ customer, onClose, onEdit, onDelete, canEdit, canDelet
   canEdit: boolean
   canDelete: boolean
 }) {
-  const { saleOrders, quotations, activities, updateActivity, deleteActivity } = useStore()
+  const { saleOrders, quotations, activities, updateActivity, deleteActivity, companySettings } = useStore()
   const [tab, setTab] = useState<DrawerTab>('info')
   const [showAddActivity, setShowAddActivity] = useState(false)
 
@@ -424,6 +425,50 @@ function CustomerDrawer({ customer, onClose, onEdit, onDelete, canEdit, canDelet
                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-100 dark:border-amber-800">
                   <h4 className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2">Notas internas</h4>
                   <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-line">{customer.notes}</p>
+                </div>
+              )}
+
+              {/* WhatsApp Quick Actions */}
+              {customer.phone && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Acciones rápidas WhatsApp</h4>
+                  <div className="flex flex-col gap-2">
+                    {customerStats.lastDate && (
+                      <button
+                        className="w-full btn flex items-center justify-center gap-2 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 text-sm"
+                        onClick={() => {
+                          const lastOrder = saleOrders.filter(o => o.customerId === customer.id).sort((a,b) => b.date.localeCompare(a.date))[0]
+                          openWhatsApp(customer.phone, buildFollowUp({
+                            companyName: companySettings.companyName,
+                            customer: customer.name,
+                            orderNumber: lastOrder?.orderNumber || '—',
+                            date: lastOrder?.date || '—',
+                          }))
+                        }}>
+                        <MessageCircle size={14} /> Seguimiento post-venta
+                      </button>
+                    )}
+                    {customerStats.pendingBalance > 0 && (
+                      <button
+                        className="w-full btn flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 text-sm"
+                        onClick={() => {
+                          const unpaid = saleOrders.filter(o => o.customerId === customer.id && o.paymentStatus !== 'paid')
+                          if (unpaid.length > 0) {
+                            openWhatsApp(customer.phone, buildPaymentReminder({
+                              companyName: companySettings.companyName,
+                              customer: customer.name,
+                              orderNumber: unpaid[0].orderNumber,
+                              date: unpaid[0].date,
+                              total: unpaid[0].total,
+                              paymentStatus: unpaid[0].paymentStatus,
+                              bankInfo: getBankInfo(companySettings),
+                            }))
+                          }
+                        }}>
+                        <Phone size={14} /> Recordar pago ({formatCOP(customerStats.pendingBalance)})
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </>

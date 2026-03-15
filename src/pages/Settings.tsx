@@ -1,19 +1,20 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff, MessageCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { UserAvatar } from '../components/layout/Topbar'
 import Pagination from '../components/Pagination'
+import { WA_TEMPLATES, WaTemplateKey } from '../utils/whatsapp'
 
 const TAB_ICONS: Record<string, any> = {
   empresa: Building, usuarios: Users, pagos: CreditCard,
-  impuestos: Percent, notificaciones: Bell, seguridad: Shield, auditoria: ClipboardList,
+  impuestos: Percent, notificaciones: Bell, whatsapp: MessageCircle, seguridad: Shield, auditoria: ClipboardList,
 }
 
-const tabs = ['empresa','usuarios','pagos','impuestos','notificaciones','seguridad','auditoria']
+const tabs = ['empresa','usuarios','pagos','impuestos','notificaciones','whatsapp','seguridad','auditoria']
 const TAB_LABELS: Record<string, string> = {
   empresa:'Empresa', usuarios:'Usuarios y roles', pagos:'Métodos de pago',
-  impuestos:'Impuestos', notificaciones:'Notificaciones', seguridad:'Seguridad', auditoria:'Auditoría',
+  impuestos:'Impuestos', notificaciones:'Notificaciones', whatsapp:'WhatsApp', seguridad:'Seguridad', auditoria:'Auditoría',
 }
 
 interface AuditEntry {
@@ -875,6 +876,73 @@ export default function Settings() {
                     </label>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'whatsapp' && (
+            <div className="space-y-5">
+              <h2 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2"><MessageCircle size={18} className="text-green-600" /> Plantillas de WhatsApp</h2>
+              <p className="text-sm text-slate-500 dark:text-gray-400">
+                Estas plantillas se usan para enviar mensajes automáticos por WhatsApp. Los textos entre <code className="px-1 py-0.5 bg-slate-100 dark:bg-gray-700 rounded text-xs">{'{placeholder}'}</code> se reemplazan automáticamente con datos reales.
+              </p>
+              <div className="space-y-4">
+                {(Object.entries(WA_TEMPLATES) as [WaTemplateKey, string][]).map(([key, template]) => {
+                  const labelMap: Record<WaTemplateKey, string> = {
+                    orderConfirmation: 'Confirmación de pedido',
+                    paymentReminder: 'Recordatorio de pago',
+                    dispatchNotification: 'Notificación de despacho',
+                    deliveryConfirmation: 'Confirmación de entrega',
+                    followUp: 'Seguimiento post-venta',
+                    bulkPaymentReminder: 'Cobro masivo',
+                  }
+                  const descMap: Record<WaTemplateKey, string> = {
+                    orderConfirmation: 'Se envía al confirmar una orden de venta',
+                    paymentReminder: 'Se envía para recordar pagos pendientes',
+                    dispatchNotification: 'Se envía cuando se programa un despacho',
+                    deliveryConfirmation: 'Se envía al confirmar la entrega',
+                    followUp: 'Se envía como seguimiento después de la venta',
+                    bulkPaymentReminder: 'Se envía cuando un cliente tiene múltiples órdenes pendientes',
+                  }
+                  return (
+                    <div key={key} className="border border-slate-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                      <div className="bg-slate-50 dark:bg-gray-700 px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700 dark:text-gray-200">{labelMap[key]}</p>
+                          <p className="text-xs text-slate-500 dark:text-gray-400">{descMap[key]}</p>
+                        </div>
+                        <span className="text-xs font-mono text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-800 px-2 py-0.5 rounded">{key}</span>
+                      </div>
+                      <div className="p-4">
+                        <pre className="whitespace-pre-wrap text-sm text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-gray-800 rounded-lg p-4 border border-slate-100 dark:border-gray-700 font-sans leading-relaxed">{template}</pre>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1">💡 Variables disponibles</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                  {[
+                    ['{cliente}', 'Nombre del cliente'],
+                    ['{empresa}', 'Nombre de tu empresa'],
+                    ['{orden}', 'Número de orden'],
+                    ['{fecha}', 'Fecha de la orden'],
+                    ['{total}', 'Total formateado en COP'],
+                    ['{metodo_pago}', 'Método de pago'],
+                    ['{productos}', 'Lista de productos'],
+                    ['{estado_pago}', 'Estado del pago'],
+                    ['{despacho}', 'Número de despacho'],
+                    ['{conductor}', 'Nombre del conductor'],
+                    ['{direccion}', 'Dirección de entrega'],
+                    ['{datos_bancarios}', 'Datos bancarios'],
+                  ].map(([variable, desc]) => (
+                    <div key={variable} className="flex items-start gap-2 text-xs">
+                      <code className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 rounded text-blue-700 dark:text-blue-400 font-mono flex-shrink-0">{variable}</code>
+                      <span className="text-blue-600 dark:text-blue-400">{desc}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
