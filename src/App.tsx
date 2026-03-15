@@ -16,6 +16,7 @@ import PurchaseOrders from './pages/PurchaseOrders'
 import DispatchPage from './pages/Dispatch'
 import ExpensesPage from './pages/Expenses'
 import PipelinePage from './pages/Pipeline'
+import PublicCatalog from './pages/PublicCatalog'
 import { useStore } from './store/useStore'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/catalogo" element={<PublicCatalog />} />
       <Route path="/login" element={<Login />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>

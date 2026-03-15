@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import {
   Plus, Search, X, BookOpen, Tag, TrendingUp, Trash2, Pencil,
   LayoutGrid, List, ArrowUpDown, SlidersHorizontal, FileSpreadsheet,
-  ImageIcon, ChevronDown, Star, ShoppingCart, DollarSign, Package,
+  ImageIcon, ChevronDown, Star, ShoppingCart, DollarSign, Package, ExternalLink,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Product, ProductVariant } from '../data/mockData'
@@ -759,6 +759,14 @@ export default function Catalog() {
           <p className="text-slate-500 dark:text-gray-400 text-sm">Gestión de productos, precios y rentabilidad</p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="/catalogo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary flex items-center gap-2"
+          >
+            <ExternalLink size={14} /> Ver catálogo
+          </a>
           <button className="btn btn-secondary flex items-center gap-2" onClick={handleExport}>
             <FileSpreadsheet size={14} /> Exportar
           </button>
