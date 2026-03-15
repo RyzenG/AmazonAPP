@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
@@ -153,7 +153,23 @@ export default function Inventory() {
   const [deleteTarget, setDeleteTarget] = useState<Supply | null>(null)
   const [deleting, setDeleting]         = useState(false)
   const [page, setPage]                 = useState(1)
+  const [showReorder, setShowReorder]   = useState(true)
   const PAGE_SIZE = 20
+
+  // Smart reorder suggestions: items below min stock, suggest ordering to 2x min
+  const reorderSuggestions = useMemo(() => {
+    return supplies
+      .filter(s => s.stock < s.minStock)
+      .map(s => ({
+        ...s,
+        deficit: s.minStock - s.stock,
+        suggestedQty: Math.ceil((s.minStock * 2) - s.stock),
+        estimatedCost: Math.ceil((s.minStock * 2) - s.stock) * s.cost,
+      }))
+      .sort((a, b) => (a.stock / a.minStock) - (b.stock / b.minStock))
+  }, [supplies])
+
+  const totalReorderCost = reorderSuggestions.reduce((a, s) => a + s.estimatedCost, 0)
 
   // Deep link: ?open=ID → open the supply edit modal
   useEffect(() => {
@@ -210,6 +226,59 @@ export default function Inventory() {
           </div>
         ))}
       </div>
+
+      {/* Smart Reorder Suggestions */}
+      {reorderSuggestions.length > 0 && (
+        <div className="card overflow-hidden border-amber-200 dark:border-amber-800">
+          <button onClick={() => setShowReorder(!showReorder)}
+            className="w-full flex items-center justify-between px-5 py-3 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+            <div className="flex items-center gap-2">
+              <ShoppingCart size={16} className="text-amber-600" />
+              <span className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
+                Sugerencias de reorden — {reorderSuggestions.length} insumos
+              </span>
+              <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 rounded-full font-medium">
+                Costo estimado: {formatCOP(totalReorderCost)}
+              </span>
+            </div>
+            {showReorder ? <ChevronUp size={16} className="text-amber-500" /> : <ChevronDown size={16} className="text-amber-500" />}
+          </button>
+          {showReorder && (
+            <div className="p-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-gray-700">
+                    {['Insumo','Proveedor','Stock actual','Mínimo','Déficit','Cant. sugerida','Costo estimado'].map(h => (
+                      <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-slate-500 dark:text-gray-400">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reorderSuggestions.map(s => (
+                    <tr key={s.id} className="border-b border-slate-50 dark:border-gray-700 hover:bg-amber-50/50 dark:hover:bg-amber-900/10">
+                      <td className="px-3 py-2.5 font-medium text-slate-800 dark:text-gray-200">{s.name}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-gray-400 text-xs">{s.supplier || '—'}</td>
+                      <td className="px-3 py-2.5 text-red-600 dark:text-red-400 font-bold">{s.stock} {s.unit}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-gray-400">{s.minStock} {s.unit}</td>
+                      <td className="px-3 py-2.5 text-red-600 dark:text-red-400 font-semibold">-{s.deficit.toFixed(1)} {s.unit}</td>
+                      <td className="px-3 py-2.5 font-bold text-blue-600 dark:text-blue-400">{s.suggestedQty} {s.unit}</td>
+                      <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-gray-200">{formatCOP(s.estimatedCost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-gray-700">
+                <p className="text-xs text-slate-500 dark:text-gray-400">
+                  Cantidad sugerida: reponer al doble del stock mínimo
+                </p>
+                <Link to="/purchases" className="btn btn-sm btn-primary flex items-center gap-1">
+                  <ShoppingCart size={13} /> Ir a Órdenes de Compra
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card p-4 flex flex-col sm:flex-row gap-3">

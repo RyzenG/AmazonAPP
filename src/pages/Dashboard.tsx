@@ -5,11 +5,12 @@ import {
 import {
   TrendingUp, TrendingDown, Package, Factory,
   AlertTriangle, ShoppingCart, DollarSign, Users, Clock, RefreshCw,
+  Target, Wallet, ArrowUpRight, ArrowDownRight, Edit2, Check,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatCOP } from '../utils/currency'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 
 const AUTO_REFRESH_MIN = 5
 
@@ -58,9 +59,48 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
-  const { supplies, saleOrders, productionOrders, products, darkMode, loadAllData } = useStore()
+  const { supplies, saleOrders, productionOrders, products, expenses, purchaseOrders, darkMode, loadAllData } = useStore()
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing, setRefreshing]   = useState(false)
+
+  // ── Sales Goal ──────────────────────────────────────────────────────────
+  const [monthlyGoal, setMonthlyGoal] = useState(() => {
+    try { return parseFloat(localStorage.getItem('erp_monthly_goal') || '0') || 0 } catch { return 0 }
+  })
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [goalInput, setGoalInput]     = useState('')
+
+  const currentMonthSales = useMemo(() => {
+    const now = new Date()
+    const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return saleOrders.filter(o => o.date?.startsWith(key)).reduce((a, o) => a + o.total, 0)
+  }, [saleOrders])
+
+  const goalPct = monthlyGoal > 0 ? Math.min((currentMonthSales / monthlyGoal) * 100, 100) : 0
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()
+  const dayOfMonth  = new Date().getDate()
+  const expectedPct = (dayOfMonth / daysInMonth) * 100
+  const onTrack = goalPct >= expectedPct
+
+  // ── Cash Flow Forecast ────────────────────────────────────────────────
+  const cashFlow = useMemo(() => {
+    const pendingReceivables = saleOrders
+      .filter(o => o.paymentStatus === 'pending' || o.paymentStatus === 'partial')
+      .reduce((a, o) => a + o.total, 0)
+    const pendingPayables = purchaseOrders
+      .filter(o => o.status === 'sent' || o.status === 'partial' || o.status === 'draft')
+      .reduce((a, o) => a + o.total, 0)
+    const monthlyExpenses = (() => {
+      const now = new Date()
+      const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      return expenses.filter(e => e.date?.startsWith(key)).reduce((a, e) => a + e.amount, 0)
+    })()
+    const recurringMonthly = expenses
+      .filter(e => e.recurring && e.period === 'monthly')
+      .reduce((a, e) => a + e.amount, 0)
+    const netProjected = pendingReceivables - pendingPayables - recurringMonthly
+    return { pendingReceivables, pendingPayables, monthlyExpenses, recurringMonthly, netProjected }
+  }, [saleOrders, purchaseOrders, expenses])
 
   const refresh = async () => {
     setRefreshing(true)
@@ -199,6 +239,62 @@ export default function Dashboard() {
           </div>
         )
       })()}
+
+      {/* Sales Goal Tracker */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Target size={18} className="text-blue-600" />
+            <h2 className="font-semibold text-slate-800 dark:text-white">Meta de ventas del mes</h2>
+          </div>
+          {!editingGoal ? (
+            <button onClick={() => { setGoalInput(String(monthlyGoal || '')); setEditingGoal(true) }}
+              className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+              <Edit2 size={12} /> {monthlyGoal > 0 ? 'Editar meta' : 'Definir meta'}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <input type="number" className="input text-xs py-1 w-40" placeholder="Meta mensual ($)"
+                value={goalInput} onChange={(e) => setGoalInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { const v = parseFloat(goalInput) || 0; setMonthlyGoal(v); localStorage.setItem('erp_monthly_goal', String(v)); setEditingGoal(false) }}} />
+              <button onClick={() => { const v = parseFloat(goalInput) || 0; setMonthlyGoal(v); localStorage.setItem('erp_monthly_goal', String(v)); setEditingGoal(false) }}
+                className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"><Check size={14} /></button>
+            </div>
+          )}
+        </div>
+        {monthlyGoal > 0 ? (
+          <div>
+            <div className="flex items-end justify-between mb-2">
+              <div>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white">{formatCOP(currentMonthSales)}</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400">de {formatCOP(monthlyGoal)} meta</p>
+              </div>
+              <div className="text-right">
+                <p className={`text-lg font-bold ${onTrack ? 'text-emerald-600' : 'text-amber-600'}`}>{goalPct.toFixed(1)}%</p>
+                <div className="flex items-center gap-1 text-xs">
+                  {onTrack ? <ArrowUpRight size={12} className="text-emerald-500" /> : <ArrowDownRight size={12} className="text-amber-500" />}
+                  <span className={onTrack ? 'text-emerald-600' : 'text-amber-600'}>
+                    {onTrack ? 'En camino' : `${(expectedPct - goalPct).toFixed(0)}% bajo ritmo`}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="relative h-3 bg-slate-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${onTrack ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                style={{ width: `${goalPct}%` }} />
+              <div className="absolute top-0 h-full w-0.5 bg-slate-400 dark:bg-gray-500"
+                style={{ left: `${expectedPct}%` }}
+                title={`Día ${dayOfMonth}/${daysInMonth} — deberías estar al ${expectedPct.toFixed(0)}%`} />
+            </div>
+            <div className="flex justify-between text-xs text-slate-400 dark:text-gray-500 mt-1">
+              <span>Día {dayOfMonth} de {daysInMonth}</span>
+              <span>Faltan {formatCOP(Math.max(0, monthlyGoal - currentMonthSales))}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 dark:text-gray-500">Define una meta mensual para visualizar tu progreso y mantener el ritmo de ventas.</p>
+        )}
+      </div>
 
       {/* Charts row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -368,6 +464,47 @@ export default function Dashboard() {
           </div>
         )
       })()}
+
+      {/* Cash Flow Forecast */}
+      <div className="card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Wallet size={18} className="text-violet-600" />
+          <div>
+            <h2 className="font-semibold text-slate-800 dark:text-white">Flujo de caja proyectado</h2>
+            <p className="text-xs text-slate-500 dark:text-gray-400">Proyección basada en cuentas pendientes y gastos recurrentes</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4">
+            <div className="flex items-center gap-1 mb-1">
+              <ArrowUpRight size={14} className="text-emerald-600" />
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Por cobrar</p>
+            </div>
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{formatCOP(cashFlow.pendingReceivables)}</p>
+          </div>
+          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+            <div className="flex items-center gap-1 mb-1">
+              <ArrowDownRight size={14} className="text-red-600" />
+              <p className="text-xs font-semibold text-red-700 dark:text-red-400">Por pagar (OC)</p>
+            </div>
+            <p className="text-lg font-bold text-red-700 dark:text-red-300">{formatCOP(cashFlow.pendingPayables)}</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+            <div className="flex items-center gap-1 mb-1">
+              <Clock size={14} className="text-amber-600" />
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Gastos recurrentes</p>
+            </div>
+            <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{formatCOP(cashFlow.recurringMonthly)}</p>
+          </div>
+          <div className={`rounded-xl border p-4 ${cashFlow.netProjected >= 0 ? 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'}`}>
+            <div className="flex items-center gap-1 mb-1">
+              <DollarSign size={14} className={cashFlow.netProjected >= 0 ? 'text-blue-600' : 'text-red-600'} />
+              <p className={`text-xs font-semibold ${cashFlow.netProjected >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-red-700 dark:text-red-400'}`}>Flujo neto</p>
+            </div>
+            <p className={`text-lg font-bold ${cashFlow.netProjected >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>{formatCOP(cashFlow.netProjected)}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Production status */}
       <div className="card p-5">
