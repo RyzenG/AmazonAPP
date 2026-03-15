@@ -60,7 +60,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
-  const { supplies, saleOrders, productionOrders, products, expenses, purchaseOrders, customers, companySettings, darkMode, loadAllData } = useStore()
+  const { supplies, saleOrders, productionOrders, products, expenses, purchaseOrders, customers, companySettings, dispatches, darkMode, loadAllData, user } = useStore()
+  const role = user?.role ?? 'Administrador'
+  const isAdmin = role === 'Administrador'
+  const showSales = isAdmin || role === 'Ventas' || role === 'Contabilidad'
+  const showProduction = isAdmin || role === 'Producción'
+  const showInventory = isAdmin || role === 'Inventario' || role === 'Producción'
+  const showFinance = isAdmin || role === 'Contabilidad'
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing, setRefreshing]   = useState(false)
 
@@ -198,9 +204,11 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Panel de Control</h1>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+            {isAdmin ? 'Panel de Control' : `Panel — ${role}`}
+          </h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm mt-0.5">
-            Resumen general del negocio —{' '}
+            {user?.name ? `Hola, ${user.name.split(' ')[0]}` : 'Resumen'} —{' '}
             {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
           </p>
         </div>
@@ -228,21 +236,25 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards — role-specific */}
       {(() => {
         const pendingPayTotal = saleOrders.filter(o => o.paymentStatus === 'pending' || o.paymentStatus === 'partial').reduce((a,o)=>a+o.total,0)
+        const scheduledDispatches = dispatches.filter(d => d.status === 'scheduled' || d.status === 'in_transit').length
+        const cards: React.ReactNode[] = []
+        if (showSales)      cards.push(<KPICard key="sales" icon={DollarSign}  label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />)
+        if (showSales || showFinance) cards.push(<KPICard key="receivable" icon={Clock}       label="Por cobrar"             value={formatCOP(pendingPayTotal)} sub="Pagos pendientes" trend={pendingPayTotal>0?'down':undefined} color="bg-rose-500" />)
+        if (showInventory)  cards.push(<KPICard key="stock" icon={Package}     label="Alertas de inventario"  value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />)
+        if (showProduction) cards.push(<KPICard key="prod" icon={Factory}      label="En producción"          value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />)
+        if (showSales)      cards.push(<KPICard key="dispatch" icon={Users}    label="Despachos activos"      value={`${scheduledDispatches}`} sub="Programados / en tránsito" color="bg-violet-600" />)
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KPICard icon={DollarSign}   label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
-            <KPICard icon={Clock}        label="Por cobrar"             value={formatCOP(pendingPayTotal)} sub="Pagos pendientes" trend={pendingPayTotal>0?'down':undefined} color="bg-rose-500" />
-            <KPICard icon={Package}      label="Alertas de inventario"  value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
-            <KPICard icon={Factory}      label="En producción"          value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'} gap-4`}>
+            {cards}
           </div>
         )
       })()}
 
-      {/* Sales Goal Tracker */}
-      <div className="card p-5">
+      {/* Sales Goal Tracker — Ventas / Admin */}
+      {showSales && <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Target size={18} className="text-blue-600" />
@@ -295,9 +307,10 @@ export default function Dashboard() {
         ) : (
           <p className="text-sm text-slate-400 dark:text-gray-500">Define una meta mensual para visualizar tu progreso y mantener el ritmo de ventas.</p>
         )}
-      </div>
+      </div>}
 
-      {/* Charts row */}
+      {/* Charts row — Ventas / Admin */}
+      {showSales && <>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Sales line chart */}
         <div className="card p-5 xl:col-span-2">
@@ -403,9 +416,10 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </>}
 
-      {/* Accounts receivable aging */}
-      {(() => {
+      {/* Accounts receivable aging — Ventas / Contabilidad / Admin */}
+      {(showSales || showFinance) && (() => {
         const today = new Date()
         const unpaid = saleOrders.filter((o) => o.paymentStatus === 'pending' || o.paymentStatus === 'partial')
         if (unpaid.length === 0) return null
@@ -528,7 +542,8 @@ export default function Dashboard() {
         )
       })()}
 
-      {/* Cash Flow Forecast */}
+      {/* Cash Flow Forecast — Contabilidad / Admin */}
+      {(showFinance || isAdmin) &&
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Wallet size={18} className="text-violet-600" />
@@ -567,10 +582,10 @@ export default function Dashboard() {
             <p className={`text-lg font-bold ${cashFlow.netProjected >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>{formatCOP(cashFlow.netProjected)}</p>
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* Production status */}
-      <div className="card p-5">
+      {/* Production status — Producción / Admin */}
+      {showProduction && <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-slate-800 dark:text-white">Estado de producción</h2>
           <Link to="/production" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</Link>
@@ -605,7 +620,30 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
+
+      {/* Inventory role: show low stock detail */}
+      {role === 'Inventario' && lowStock.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-800 dark:text-white">Insumos bajo stock mínimo</h2>
+            <Link to="/inventory" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver inventario →</Link>
+          </div>
+          <div className="space-y-0">
+            <div className="grid grid-cols-4 text-xs text-slate-400 dark:text-gray-500 font-medium pb-2 border-b border-slate-100 dark:border-gray-700">
+              <span>Insumo</span><span className="text-right">Stock</span><span className="text-right">Mínimo</span><span className="text-right">Déficit</span>
+            </div>
+            {lowStock.map((s) => (
+              <div key={s.id} className="grid grid-cols-4 items-center py-2.5 border-b border-slate-50 dark:border-gray-700 text-sm">
+                <span className="text-slate-700 dark:text-gray-300 truncate pr-2">{s.name}</span>
+                <span className="text-right font-mono text-red-600 dark:text-red-400">{s.stock} {s.unit}</span>
+                <span className="text-right font-mono text-slate-500 dark:text-gray-400">{s.minStock} {s.unit}</span>
+                <span className="text-right font-bold text-red-600 dark:text-red-400">-{s.minStock - s.stock} {s.unit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

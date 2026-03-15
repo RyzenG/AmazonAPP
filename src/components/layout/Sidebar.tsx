@@ -2,25 +2,26 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Factory, ShoppingCart,
   Users, BarChart3, BookOpen, Settings, ChevronLeft, ChevronRight,
-  Leaf, LogOut, FileText, Truck, Navigation, Receipt, Kanban,
+  Leaf, LogOut, FileText, Truck, Navigation, Receipt, Kanban, CalendarDays,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { useMemo } from 'react'
 
 const nav = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',      category: null },
-  { to: '/inventory',  icon: Package,         label: 'Inventario',     category: 'inventory' },
-  { to: '/production', icon: Factory,         label: 'Producción',     category: 'production' },
-  { to: '/sales',      icon: ShoppingCart,    label: 'Ventas',         category: 'sales' },
-  { to: '/quotations', icon: FileText,        label: 'Cotizaciones',   category: 'sales' },
-  { to: '/purchases',  icon: Truck,           label: 'Compras',        category: 'purchases' },
-  { to: '/dispatch',   icon: Navigation,      label: 'Despachos',      category: 'dispatch' },
-  { to: '/crm',        icon: Users,           label: 'Clientes',       category: 'crm' },
-  { to: '/pipeline',   icon: Kanban,          label: 'Pipeline',       category: 'crm' },
-  { to: '/expenses',   icon: Receipt,         label: 'Gastos',         category: null },
-  { to: '/catalog',    icon: BookOpen,        label: 'Catálogo',       category: null },
-  { to: '/reports',    icon: BarChart3,       label: 'Reportes',       category: null },
-  { to: '/settings',   icon: Settings,        label: 'Configuración',  category: null },
+  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard',      category: null,         roles: null },
+  { to: '/calendar',   icon: CalendarDays,    label: 'Calendario',     category: null,         roles: null },
+  { to: '/inventory',  icon: Package,         label: 'Inventario',     category: 'inventory',  roles: ['Administrador','Inventario','Producción'] },
+  { to: '/production', icon: Factory,         label: 'Producción',     category: 'production', roles: ['Administrador','Producción'] },
+  { to: '/sales',      icon: ShoppingCart,    label: 'Ventas',         category: 'sales',      roles: ['Administrador','Ventas','Contabilidad'] },
+  { to: '/quotations', icon: FileText,        label: 'Cotizaciones',   category: 'sales',      roles: ['Administrador','Ventas'] },
+  { to: '/purchases',  icon: Truck,           label: 'Compras',        category: 'purchases',  roles: ['Administrador','Inventario','Contabilidad'] },
+  { to: '/dispatch',   icon: Navigation,      label: 'Despachos',      category: 'dispatch',   roles: ['Administrador','Ventas','Producción'] },
+  { to: '/crm',        icon: Users,           label: 'Clientes',       category: 'crm',        roles: ['Administrador','Ventas'] },
+  { to: '/pipeline',   icon: Kanban,          label: 'Pipeline',       category: 'crm',        roles: ['Administrador','Ventas'] },
+  { to: '/expenses',   icon: Receipt,         label: 'Gastos',         category: null,         roles: ['Administrador','Contabilidad'] },
+  { to: '/catalog',    icon: BookOpen,        label: 'Catálogo',       category: null,         roles: ['Administrador','Ventas','Inventario'] },
+  { to: '/reports',    icon: BarChart3,       label: 'Reportes',       category: null,         roles: ['Administrador','Contabilidad'] },
+  { to: '/settings',   icon: Settings,        label: 'Configuración',  category: null,         roles: ['Administrador'] },
 ] as const
 
 export default function Sidebar() {
@@ -91,7 +92,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {nav.map(({ to, icon: Icon, label, category }) => {
+        {nav.filter(item => !item.roles || (item.roles as readonly string[]).includes(user?.role ?? 'Administrador')).map(({ to, icon: Icon, label, category }) => {
           const badgeCount = category ? (badgeCounts[category] ?? 0) : 0
           return (
             <NavLink
