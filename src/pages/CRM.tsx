@@ -3,7 +3,7 @@ import {
   Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin,
   MessageCircle, Send, Pencil, Trash2, FileSpreadsheet,
   PhoneCall, AtSign, Navigation, StickyNote, CheckCircle2, Circle,
-  FileText, ShoppingBag, Activity, Info, Clock,
+  FileText, ShoppingBag, Activity, Info, Clock, Heart, Repeat, AlertCircle,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer, CustomerActivity, Quotation } from '../data/mockData'
@@ -601,6 +601,43 @@ export default function CRM() {
   const totalRevenue = Object.values(customerStats).reduce((a, s) => a + s.total, 0)
   const vipCount     = customers.filter((c) => c.segment === 'vip').length
 
+  // ── Customer Health & CLV Metrics ─────────────────────────────────────
+  const clvMetrics = useMemo(() => {
+    const today = new Date()
+    const activeCustomers = customers.filter(c => c.isActive)
+    // CLV = avg revenue per customer
+    const avgCLV = activeCustomers.length > 0
+      ? Object.values(customerStats).reduce((a, s) => a + s.total, 0) / activeCustomers.length
+      : 0
+
+    // Repeat purchase rate: customers with 2+ orders / total customers
+    const orderCountByCustomer: Record<string, number> = {}
+    saleOrders.forEach(o => { orderCountByCustomer[o.customerId] = (orderCountByCustomer[o.customerId] ?? 0) + 1 })
+    const repeatBuyers = Object.values(orderCountByCustomer).filter(c => c >= 2).length
+    const totalBuyers  = Object.keys(orderCountByCustomer).length
+    const repeatRate   = totalBuyers > 0 ? (repeatBuyers / totalBuyers * 100) : 0
+
+    // At-risk customers: active, had purchases but no activity/purchase in 30+ days
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 86400000).toISOString().split('T')[0]
+    const atRisk = activeCustomers.filter(c => {
+      const stats = customerStats[c.id]
+      if (!stats || !stats.lastDate) return false
+      return stats.lastDate < thirtyDaysAgo && stats.total > 0
+    })
+
+    // Avg order value
+    const avgOrderValue = saleOrders.length > 0
+      ? saleOrders.reduce((a, o) => a + o.total, 0) / saleOrders.length
+      : 0
+
+    // Avg orders per customer
+    const avgOrdersPerCustomer = totalBuyers > 0
+      ? saleOrders.length / totalBuyers
+      : 0
+
+    return { avgCLV, repeatRate, repeatBuyers, totalBuyers, atRisk, avgOrderValue, avgOrdersPerCustomer }
+  }, [customers, saleOrders, customerStats])
+
   const handleExportExcel = () => {
     const data = filtered.map((c) => ({
       Código: c.code,
@@ -655,6 +692,62 @@ export default function CRM() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Customer Health & CLV */}
+      <div className="card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Heart size={16} className="text-rose-500" />
+          <h2 className="font-semibold text-slate-800 dark:text-white text-sm">Salud de clientes & Valor de vida (CLV)</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-gray-400">CLV promedio</p>
+            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCOP(clvMetrics.avgCLV)}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">por cliente</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-gray-400">Tasa de recompra</p>
+            <p className={`text-lg font-bold ${clvMetrics.repeatRate >= 50 ? 'text-emerald-600' : clvMetrics.repeatRate >= 25 ? 'text-amber-600' : 'text-red-600'}`}>
+              {clvMetrics.repeatRate.toFixed(0)}%
+            </p>
+            <p className="text-xs text-slate-400 dark:text-gray-500 flex items-center justify-center gap-1">
+              <Repeat size={10} /> {clvMetrics.repeatBuyers}/{clvMetrics.totalBuyers} repiten
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-gray-400">Ticket promedio</p>
+            <p className="text-lg font-bold text-violet-600 dark:text-violet-400">{formatCOP(clvMetrics.avgOrderValue)}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">por orden</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-gray-400">Pedidos / cliente</p>
+            <p className="text-lg font-bold text-teal-600 dark:text-teal-400">{clvMetrics.avgOrdersPerCustomer.toFixed(1)}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">promedio</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs text-slate-500 dark:text-gray-400">En riesgo</p>
+            <p className={`text-lg font-bold ${clvMetrics.atRisk.length > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              {clvMetrics.atRisk.length}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-gray-500 flex items-center justify-center gap-1">
+              <AlertCircle size={10} /> sin actividad 30d+
+            </p>
+          </div>
+        </div>
+        {clvMetrics.atRisk.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-700">
+            <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">Clientes en riesgo — sin compra ni actividad en 30+ días:</p>
+            <div className="flex flex-wrap gap-2">
+              {clvMetrics.atRisk.slice(0, 8).map(c => (
+                <button key={c.id} onClick={() => setSelected(c)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                  <AlertCircle size={11} /> {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
