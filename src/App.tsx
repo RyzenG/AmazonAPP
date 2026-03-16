@@ -16,6 +16,7 @@ import PurchaseOrders from './pages/PurchaseOrders'
 import DispatchPage from './pages/Dispatch'
 import ExpensesPage from './pages/Expenses'
 import PipelinePage from './pages/Pipeline'
+import CalendarPage from './pages/Calendar'
 import PublicCatalog from './pages/PublicCatalog'
 import { useStore } from './store/useStore'
 
@@ -34,6 +35,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/"            element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"   element={<Dashboard />} />
+          <Route path="/calendar"    element={<CalendarPage />} />
           <Route path="/inventory"   element={<Inventory />} />
           <Route path="/production"  element={<Production />} />
           <Route path="/sales"       element={<Sales />} />

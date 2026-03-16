@@ -5,11 +5,12 @@ import {
 import {
   TrendingUp, TrendingDown, Package, Factory,
   AlertTriangle, ShoppingCart, DollarSign, Users, Clock, RefreshCw,
-  Target, Wallet, ArrowUpRight, ArrowDownRight, Edit2, Check,
+  Target, Wallet, ArrowUpRight, ArrowDownRight, Edit2, Check, MessageCircle, Send,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { formatCOP } from '../utils/currency'
+import { openWhatsApp, buildBulkPaymentReminder, buildPaymentReminder, getBankInfo } from '../utils/whatsapp'
 import { useEffect, useState, useMemo } from 'react'
 
 const AUTO_REFRESH_MIN = 5
@@ -59,7 +60,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
-  const { supplies, saleOrders, productionOrders, products, expenses, purchaseOrders, darkMode, loadAllData } = useStore()
+  const { supplies, saleOrders, productionOrders, products, expenses, purchaseOrders, customers, companySettings, dispatches, darkMode, loadAllData, user } = useStore()
+  const role = user?.role ?? 'Administrador'
+  const isAdmin = role === 'Administrador'
+  const showSales = isAdmin || role === 'Ventas' || role === 'Contabilidad'
+  const showProduction = isAdmin || role === 'Producción'
+  const showInventory = isAdmin || role === 'Inventario' || role === 'Producción'
+  const showFinance = isAdmin || role === 'Contabilidad'
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [refreshing, setRefreshing]   = useState(false)
 
@@ -197,9 +204,11 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Panel de Control</h1>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+            {isAdmin ? 'Panel de Control' : `Panel — ${role}`}
+          </h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm mt-0.5">
-            Resumen general del negocio —{' '}
+            {user?.name ? `Hola, ${user.name.split(' ')[0]}` : 'Resumen'} —{' '}
             {new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
           </p>
         </div>
@@ -227,21 +236,25 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards — role-specific */}
       {(() => {
         const pendingPayTotal = saleOrders.filter(o => o.paymentStatus === 'pending' || o.paymentStatus === 'partial').reduce((a,o)=>a+o.total,0)
+        const scheduledDispatches = dispatches.filter(d => d.status === 'scheduled' || d.status === 'in_transit').length
+        const cards: React.ReactNode[] = []
+        if (showSales)      cards.push(<KPICard key="sales" icon={DollarSign}  label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />)
+        if (showSales || showFinance) cards.push(<KPICard key="receivable" icon={Clock}       label="Por cobrar"             value={formatCOP(pendingPayTotal)} sub="Pagos pendientes" trend={pendingPayTotal>0?'down':undefined} color="bg-rose-500" />)
+        if (showInventory)  cards.push(<KPICard key="stock" icon={Package}     label="Alertas de inventario"  value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />)
+        if (showProduction) cards.push(<KPICard key="prod" icon={Factory}      label="En producción"          value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />)
+        if (showSales)      cards.push(<KPICard key="dispatch" icon={Users}    label="Despachos activos"      value={`${scheduledDispatches}`} sub="Programados / en tránsito" color="bg-violet-600" />)
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <KPICard icon={DollarSign}   label="Ventas totales"        value={formatCOP(totalSales)} sub={`${saleOrders.length} órdenes registradas`} color="bg-blue-600" />
-            <KPICard icon={Clock}        label="Por cobrar"             value={formatCOP(pendingPayTotal)} sub="Pagos pendientes" trend={pendingPayTotal>0?'down':undefined} color="bg-rose-500" />
-            <KPICard icon={Package}      label="Alertas de inventario"  value={`${lowStock.length}`}  sub="Insumos bajo mínimo"   trend={lowStock.length>0?'down':undefined} color="bg-amber-500" />
-            <KPICard icon={Factory}      label="En producción"          value={`${inProd.length}`}    sub={`${productionOrders.filter(o=>o.status==='pending').length} órdenes pendientes`} color="bg-teal-600" />
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${cards.length >= 4 ? 'xl:grid-cols-4' : cards.length === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2'} gap-4`}>
+            {cards}
           </div>
         )
       })()}
 
-      {/* Sales Goal Tracker */}
-      <div className="card p-5">
+      {/* Sales Goal Tracker — Ventas / Admin */}
+      {showSales && <div className="card p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Target size={18} className="text-blue-600" />
@@ -294,9 +307,10 @@ export default function Dashboard() {
         ) : (
           <p className="text-sm text-slate-400 dark:text-gray-500">Define una meta mensual para visualizar tu progreso y mantener el ritmo de ventas.</p>
         )}
-      </div>
+      </div>}
 
-      {/* Charts row */}
+      {/* Charts row — Ventas / Admin */}
+      {showSales && <>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Sales line chart */}
         <div className="card p-5 xl:col-span-2">
@@ -402,9 +416,10 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </>}
 
-      {/* Accounts receivable aging */}
-      {(() => {
+      {/* Accounts receivable aging — Ventas / Contabilidad / Admin */}
+      {(showSales || showFinance) && (() => {
         const today = new Date()
         const unpaid = saleOrders.filter((o) => o.paymentStatus === 'pending' || o.paymentStatus === 'partial')
         if (unpaid.length === 0) return null
@@ -419,6 +434,20 @@ export default function Dashboard() {
           else if (diffDays <= 30) buckets[1].orders.push(o)
           else buckets[2].orders.push(o)
         }
+
+        // Group unpaid orders by customer for bulk reminders
+        const byCustomer: Record<string, { customer: typeof customers[0]; orders: typeof saleOrders }> = {}
+        for (const o of unpaid) {
+          const cust = customers.find(c => c.id === o.customerId)
+          if (!cust?.phone) continue
+          if (!byCustomer[cust.id]) byCustomer[cust.id] = { customer: cust, orders: [] }
+          byCustomer[cust.id].orders.push(o)
+        }
+        const customersWithDebt = Object.values(byCustomer).sort(
+          (a, b) => b.orders.reduce((s, o) => s + o.total, 0) - a.orders.reduce((s, o) => s + o.total, 0)
+        )
+        const bankInfo = getBankInfo(companySettings)
+
         return (
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -445,15 +474,63 @@ export default function Dashboard() {
                 <div className="divide-y divide-red-100 dark:divide-red-900/30">
                   {buckets[2].orders.slice(0, 5).map((o) => {
                     const days = Math.floor((today.getTime() - new Date(o.date + 'T12:00:00').getTime()) / 86400000)
+                    const cust = customers.find(c => c.id === o.customerId)
                     return (
                       <div key={o.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                         <div>
                           <p className="font-mono text-xs text-blue-600 dark:text-blue-400">{o.orderNumber}</p>
                           <p className="font-medium text-slate-700 dark:text-gray-200">{o.customer}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
-                          <p className="text-xs text-red-600 dark:text-red-400">{days} días</p>
+                        <div className="flex items-center gap-3">
+                          {cust?.phone && (
+                            <button onClick={(e) => { e.stopPropagation(); openWhatsApp(cust.phone!, buildPaymentReminder({ companyName: companySettings.companyName || 'Nuestra empresa', customer: cust.name, orderNumber: o.orderNumber, date: o.date, total: o.total, paymentStatus: o.paymentStatus, bankInfo })) }}
+                              className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors" title="Cobrar por WhatsApp">
+                              <MessageCircle size={14} />
+                            </button>
+                          )}
+                          <div className="text-right">
+                            <p className="font-bold text-slate-800 dark:text-white">{formatCOP(o.total)}</p>
+                            <p className="text-xs text-red-600 dark:text-red-400">{days} días</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Bulk WhatsApp payment reminders */}
+            {customersWithDebt.length > 0 && (
+              <div className="mt-4 border border-green-200 dark:border-green-800 rounded-lg overflow-hidden">
+                <div className="bg-green-50 dark:bg-green-900/20 px-4 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle size={14} className="text-green-700 dark:text-green-400" />
+                    <p className="text-xs font-semibold text-green-700 dark:text-green-400">Cobro masivo por WhatsApp</p>
+                  </div>
+                  <span className="text-xs text-green-600 dark:text-green-500">{customersWithDebt.length} clientes con saldo</span>
+                </div>
+                <div className="divide-y divide-green-100 dark:divide-green-900/30">
+                  {customersWithDebt.slice(0, 8).map(({ customer: cust, orders: custOrders }) => {
+                    const total = custOrders.reduce((a, o) => a + o.total, 0)
+                    return (
+                      <div key={cust.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <div>
+                          <p className="font-medium text-slate-700 dark:text-gray-200">{cust.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-gray-400">{custOrders.length} orden(es) — {cust.phone}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="font-bold text-slate-800 dark:text-white">{formatCOP(total)}</p>
+                          <button onClick={() => {
+                            if (custOrders.length === 1) {
+                              openWhatsApp(cust.phone!, buildPaymentReminder({ companyName: companySettings.companyName || 'Nuestra empresa', customer: cust.name, orderNumber: custOrders[0].orderNumber, date: custOrders[0].date, total: custOrders[0].total, paymentStatus: custOrders[0].paymentStatus, bankInfo }))
+                            } else {
+                              openWhatsApp(cust.phone!, buildBulkPaymentReminder({ companyName: companySettings.companyName || 'Nuestra empresa', customer: cust.name, orders: custOrders.map(o => ({ orderNumber: o.orderNumber, date: o.date, total: o.total })), bankInfo }))
+                            }
+                          }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors">
+                            <Send size={12} /> Cobrar
+                          </button>
                         </div>
                       </div>
                     )
@@ -465,7 +542,8 @@ export default function Dashboard() {
         )
       })()}
 
-      {/* Cash Flow Forecast */}
+      {/* Cash Flow Forecast — Contabilidad / Admin */}
+      {(showFinance || isAdmin) &&
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Wallet size={18} className="text-violet-600" />
@@ -504,10 +582,10 @@ export default function Dashboard() {
             <p className={`text-lg font-bold ${cashFlow.netProjected >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300'}`}>{formatCOP(cashFlow.netProjected)}</p>
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* Production status */}
-      <div className="card p-5">
+      {/* Production status — Producción / Admin */}
+      {showProduction && <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-slate-800 dark:text-white">Estado de producción</h2>
           <Link to="/production" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver todas →</Link>
@@ -542,7 +620,30 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
+
+      {/* Inventory role: show low stock detail */}
+      {role === 'Inventario' && lowStock.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-slate-800 dark:text-white">Insumos bajo stock mínimo</h2>
+            <Link to="/inventory" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Ver inventario →</Link>
+          </div>
+          <div className="space-y-0">
+            <div className="grid grid-cols-4 text-xs text-slate-400 dark:text-gray-500 font-medium pb-2 border-b border-slate-100 dark:border-gray-700">
+              <span>Insumo</span><span className="text-right">Stock</span><span className="text-right">Mínimo</span><span className="text-right">Déficit</span>
+            </div>
+            {lowStock.map((s) => (
+              <div key={s.id} className="grid grid-cols-4 items-center py-2.5 border-b border-slate-50 dark:border-gray-700 text-sm">
+                <span className="text-slate-700 dark:text-gray-300 truncate pr-2">{s.name}</span>
+                <span className="text-right font-mono text-red-600 dark:text-red-400">{s.stock} {s.unit}</span>
+                <span className="text-right font-mono text-slate-500 dark:text-gray-400">{s.minStock} {s.unit}</span>
+                <span className="text-right font-bold text-red-600 dark:text-red-400">-{s.minStock - s.stock} {s.unit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
