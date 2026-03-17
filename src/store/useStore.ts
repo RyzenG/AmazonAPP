@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import {
   Supply, Product, ProductionOrder, Customer, SaleOrder, Recipe, Quotation, CustomerActivity,
-  PurchaseOrder, Dispatch, Expense, Opportunity,
+  PurchaseOrder, Dispatch, Expense, Opportunity, PriceList,
 } from '../data/mockData'
 
 export type NotifCategory = 'inventory' | 'purchases' | 'sales' | 'crm' | 'production' | 'dispatch' | 'general'
@@ -65,6 +65,7 @@ interface AppState {
   dispatches:       Dispatch[]
   expenses:         Expense[]
   opportunities:    Opportunity[]
+  priceLists:       PriceList[]
   // Company settings
   companySettings:  CompanySettings
   // UI
@@ -131,6 +132,10 @@ interface AppState {
   addOpportunity:    (o: Opportunity) => Promise<void>
   updateOpportunity: (o: Opportunity) => Promise<void>
   deleteOpportunity: (id: string)     => Promise<void>
+  // Actions – price lists
+  addPriceList:    (p: PriceList) => Promise<void>
+  updatePriceList: (p: PriceList) => Promise<void>
+  deletePriceList: (id: string)   => Promise<void>
   // Actions – company settings
   saveCompanySettings: (s: CompanySettings) => Promise<void>
   // Actions – factory reset
@@ -235,6 +240,7 @@ export const useStore = create<AppState>((set, get) => ({
   dispatches:       [],
   expenses:         [],
   opportunities:    [],
+  priceLists:       [],
   companySettings:  defaultCompanySettings,
   sidebarOpen:      true,
   darkMode:         initialDark,
@@ -249,7 +255,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (get().dataLoaded && !force) return
     if (force) set({ dataLoaded: false })
     try {
-      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders, dispatches, expenses, opportunities] =
+      const [supplies, products, productionOrders, customers, saleOrders, recipes, settings, quotations, activities, purchaseOrders, dispatches, expenses, opportunities, priceLists] =
         await Promise.all([
           apiFetch<Supply[]>('/api/supplies'),
           apiFetch<Product[]>('/api/products'),
@@ -264,6 +270,7 @@ export const useStore = create<AppState>((set, get) => ({
           apiFetch<Dispatch[]>('/api/dispatches'),
           apiFetch<Expense[]>('/api/expenses'),
           apiFetch<Opportunity[]>('/api/opportunities'),
+          apiFetch<PriceList[]>('/api/price-lists').catch(() => [] as PriceList[]),
         ])
 
       const companySettings: CompanySettings = {
@@ -293,7 +300,7 @@ export const useStore = create<AppState>((set, get) => ({
         invoicePrefix:      settings.invoicePrefix      ?? defaultCompanySettings.invoicePrefix,
       }
 
-      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, dispatches, expenses, opportunities, companySettings, dataLoaded: true })
+      set({ supplies, products, productionOrders, customers, saleOrders, recipes, quotations, activities, purchaseOrders, dispatches, expenses, opportunities, priceLists, companySettings, dataLoaded: true })
       // Run smart alerts after data is ready
       get().checkAlerts()
     } catch (e) {
@@ -503,11 +510,12 @@ export const useStore = create<AppState>((set, get) => ({
       orderNumber: `${s.companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(s.saleOrders.length + 1).padStart(4, '0')}`,
       customer: q.customer, customerId: q.customerId,
       items: q.items,
-      subtotal: q.subtotal, tax: q.tax, total: q.total,
+      subtotal: q.subtotal, discount: q.discount, tax: q.tax, total: q.total,
       status: 'confirmed', paymentStatus: 'pending', paymentMethod: 'Transferencia',
       date: new Date().toISOString().split('T')[0],
       deliveryDate: q.deliveryEstimate || undefined,
       notes: q.notes,
+      priceListId: q.priceListId,
     }
     await apiFetch('/api/sale-orders', { method: 'POST', body: JSON.stringify(order) })
     const updated: Quotation = { ...q, status: 'accepted', convertedToOrderId: order.id }
@@ -614,6 +622,20 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ opportunities: s.opportunities.filter((x) => x.id !== id) }))
   },
 
+  // ── Price lists ───────────────────────────────────────────────────────────
+  addPriceList: async (pl) => {
+    await apiFetch('/api/price-lists', { method: 'POST', body: JSON.stringify(pl) })
+    set((s) => ({ priceLists: [...s.priceLists, pl] }))
+  },
+  updatePriceList: async (pl) => {
+    await apiFetch(`/api/price-lists/${pl.id}`, { method: 'PUT', body: JSON.stringify(pl) })
+    set((s) => ({ priceLists: s.priceLists.map((x) => x.id === pl.id ? pl : x) }))
+  },
+  deletePriceList: async (id) => {
+    await apiFetch(`/api/price-lists/${id}`, { method: 'DELETE' })
+    set((s) => ({ priceLists: s.priceLists.filter((x) => x.id !== id) }))
+  },
+
   // ── Smart alerts engine ────────────────────────────────────────────────────
   checkAlerts: () => {
     const s = get()
@@ -707,7 +729,7 @@ export const useStore = create<AppState>((set, get) => ({
     // Reset store to blank state (keep page alive, logout will redirect)
     set({
       supplies: [], products: [], productionOrders: [],
-      customers: [], saleOrders: [], recipes: [], quotations: [], activities: [], purchaseOrders: [],
+      customers: [], saleOrders: [], recipes: [], quotations: [], activities: [], purchaseOrders: [], priceLists: [],
       companySettings: defaultCompanySettings,
       notifications: [],
       dataLoaded: false,

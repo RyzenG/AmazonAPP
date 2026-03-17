@@ -28,14 +28,41 @@ const PAY_LABELS: Record<string, string> = {
 }
 
 function NewSaleModal({ onClose }: { onClose: () => void }) {
-  const { customers, products, addSaleOrder, saleOrders, companySettings } = useStore()
+  const { customers, products, addSaleOrder, saleOrders, companySettings, priceLists } = useStore()
   const [customerId, setCustomerId] = useState('')
   const [payMethod, setPayMethod]   = useState('Efectivo')
-  const [items, setItems]           = useState<{productId:string;variantId:string;product:string;qty:number;price:number}[]>([])
+  const [items, setItems]           = useState<{productId:string;variantId:string;product:string;qty:number;price:number;discount:number}[]>([])
   const [delDate, setDelDate]       = useState('')
   const [notes, setNotes]           = useState('')
 
-  const addItem = () => setItems([...items, { productId:'', variantId:'', product:'', qty:1, price:0 }])
+  // Resolve customer discount (from price list or customer default)
+  const selectedCustomer = customers.find((c) => c.id === customerId)
+  const customerDiscount = (() => {
+    if (!selectedCustomer) return 0
+    if (selectedCustomer.defaultDiscount) return selectedCustomer.defaultDiscount
+    if (selectedCustomer.priceListId) {
+      const pl = priceLists.find((p) => p.id === selectedCustomer.priceListId)
+      return pl?.discountPercent ?? 0
+    }
+    return 0
+  })()
+
+  // Auto-apply customer discount when customer changes
+  const handleCustomerChange = (cid: string) => {
+    setCustomerId(cid)
+    const cust = customers.find((c) => c.id === cid)
+    if (cust) {
+      let disc = 0
+      if (cust.defaultDiscount) disc = cust.defaultDiscount
+      else if (cust.priceListId) {
+        const pl = priceLists.find((p) => p.id === cust.priceListId)
+        disc = pl?.discountPercent ?? 0
+      }
+      if (disc > 0) setItems((prev) => prev.map((it) => ({ ...it, discount: disc })))
+    }
+  }
+
+  const addItem = () => setItems([...items, { productId:'', variantId:'', product:'', qty:1, price:0, discount: customerDiscount }])
   const removeItem = (i: number) => setItems(items.filter((_,j) => j !== i))
   const updateItem = (i: number, field: string, value: string | number) => {
     const copy = [...items]
@@ -58,9 +85,16 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
     setItems(copy)
   }
 
-  const subtotal = items.reduce((a, x) => a + x.qty * x.price, 0)
-  const tax      = subtotal * 0.19
-  const total    = subtotal + tax
+  const calcItemSubtotal = (item: typeof items[0]) => {
+    const raw = item.qty * item.price
+    return item.discount > 0 ? raw * (1 - item.discount / 100) : raw
+  }
+
+  const subtotal   = items.reduce((a, x) => a + x.qty * x.price, 0)
+  const totalDisc  = items.reduce((a, x) => a + (x.discount > 0 ? x.qty * x.price * x.discount / 100 : 0), 0)
+  const afterDisc  = subtotal - totalDisc
+  const tax        = afterDisc * 0.19
+  const total      = afterDisc + tax
 
   const handleSave = () => {
     const customer = customers.find((c) => c.id === customerId)
@@ -68,8 +102,9 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
     const order: SaleOrder = {
       id: `so${Date.now()}`, orderNumber: `${companySettings.invoicePrefix || 'VTA'}-${new Date().getFullYear()}-${String(saleOrders.length + 1).padStart(4, '0')}`,
       customer: customer.name, customerId,
-      items: items.map((x) => ({ product:x.product, productId:x.productId||undefined, variantId:x.variantId||undefined, qty:x.qty, price:x.price, subtotal:x.qty*x.price })),
+      items: items.map((x) => ({ product:x.product, productId:x.productId||undefined, variantId:x.variantId||undefined, qty:x.qty, price:x.price, discount: x.discount || undefined, subtotal: Math.round(calcItemSubtotal(x)) })),
       subtotal: Math.round(subtotal),
+      discount: totalDisc > 0 ? Math.round(totalDisc) : undefined,
       tax: Math.round(tax),
       total: Math.round(total),
       status: 'confirmed', paymentStatus: 'pending',
@@ -77,6 +112,7 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
       date: new Date().toISOString().split('T')[0],
       deliveryDate: delDate || undefined,
       notes: notes || undefined,
+      priceListId: customer.priceListId || undefined,
     }
     addSaleOrder(order)
     onClose()
@@ -93,10 +129,13 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Cliente *</label>
-              <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+              <select className="input" value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
                 <option value="">-- Seleccionar --</option>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>)}
               </select>
+              {customerDiscount > 0 && (
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">Descuento automático: {customerDiscount}%</p>
+              )}
             </div>
             <div>
               <label className="label">Método de pago</label>
@@ -127,14 +166,13 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
             )}
             {items.map((item, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 mb-2 items-end">
-                <div className="col-span-5">
+                <div className="col-span-4">
                   {i === 0 && <label className="label">Producto</label>}
                   <select className="input" value={item.productId}
                     onChange={(e) => updateItem(i, 'productId', e.target.value)}>
                     <option value="">-- Producto --</option>
                     {products.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
-                  {/* Variant selector — shown only when product has active variants */}
                   {(() => {
                     const p = products.find((x) => x.id === item.productId)
                     const activeVars = p?.variants?.filter(v => v.isActive) ?? []
@@ -151,19 +189,28 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
                     )
                   })()}
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   {i === 0 && <label className="label">Cant.</label>}
                   <input className="input" type="number" min="1" value={item.qty}
                     onChange={(e) => updateItem(i, 'qty', parseFloat(e.target.value) || 1)} />
                 </div>
-                <div className="col-span-3">
-                  {i === 0 && <label className="label">Precio (COP)</label>}
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Precio</label>}
                   <input className="input" type="number" min="0" step="1" value={item.price}
                     onChange={(e) => updateItem(i, 'price', parseFloat(e.target.value) || 0)} />
                 </div>
-                <div className="col-span-1">
-                  {i === 0 && <label className="label">Sub</label>}
-                  <p className="py-2 text-xs font-semibold text-slate-700 dark:text-gray-200">{formatCOP(item.qty * item.price)}</p>
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Dto. %</label>}
+                  <input className="input" type="number" min="0" max="100" step="0.5" value={item.discount || ''}
+                    onChange={(e) => updateItem(i, 'discount', parseFloat(e.target.value) || 0)}
+                    placeholder="0" />
+                </div>
+                <div className="col-span-2">
+                  {i === 0 && <label className="label">Subtotal</label>}
+                  <p className="py-2 text-xs font-semibold text-slate-700 dark:text-gray-200">
+                    {formatCOP(calcItemSubtotal(item))}
+                    {item.discount > 0 && <span className="text-green-600 dark:text-green-400 ml-1">-{item.discount}%</span>}
+                  </p>
                 </div>
                 <div className="col-span-1">
                   <button onClick={() => removeItem(i)} className="w-8 h-9 flex items-center justify-center text-red-400 hover:text-red-600">
@@ -177,7 +224,10 @@ function NewSaleModal({ onClose }: { onClose: () => void }) {
           {/* Totals */}
           {items.length > 0 && (
             <div className="bg-slate-50 dark:bg-gray-700 rounded-xl p-4 space-y-2 animate-fadeIn">
-              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">Subtotal</span><span className="dark:text-white">{formatCOP(subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">Subtotal bruto</span><span className="dark:text-white">{formatCOP(subtotal)}</span></div>
+              {totalDisc > 0 && (
+                <div className="flex justify-between text-sm"><span className="text-green-600 dark:text-green-400">Descuento</span><span className="text-green-600 dark:text-green-400">-{formatCOP(totalDisc)}</span></div>
+              )}
               <div className="flex justify-between text-sm"><span className="text-slate-500 dark:text-gray-400">IVA (19%)</span><span className="dark:text-white">{formatCOP(tax)}</span></div>
               <div className="flex justify-between font-bold text-slate-800 dark:text-white text-base pt-2 border-t border-slate-200 dark:border-gray-600">
                 <span>Total</span><span>{formatCOP(total)}</span>

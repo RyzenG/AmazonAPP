@@ -137,6 +137,24 @@ CREATE TABLE IF NOT EXISTS settings (
 
 INSERT INTO settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 
+-- Listas de precios
+CREATE TABLE IF NOT EXISTS price_lists (
+  id               TEXT PRIMARY KEY,
+  name             TEXT NOT NULL,
+  discount_percent NUMERIC NOT NULL DEFAULT 0,
+  is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at       TIMESTAMP DEFAULT NOW()
+);
+
+-- Migración: descuento en clientes
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS price_list_id     TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS default_discount  NUMERIC DEFAULT 0;
+
+-- Migración: descuento en items de venta
+ALTER TABLE sale_order_items ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0;
+ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS discount       NUMERIC DEFAULT 0;
+ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS price_list_id  TEXT;
+
 -- Auditoría de cambios
 CREATE TABLE IF NOT EXISTS audit_log (
   id          SERIAL PRIMARY KEY,

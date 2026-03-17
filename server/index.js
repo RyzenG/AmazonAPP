@@ -20,6 +20,7 @@ import purchaseOrdersRouter      from './routes/purchaseOrders.js'
 import dispatchesRouter          from './routes/dispatches.js'
 import expensesRouter            from './routes/expenses.js'
 import opportunitiesRouter       from './routes/opportunities.js'
+import priceListsRouter          from './routes/priceLists.js'
 
 dotenv.config()
 
@@ -143,6 +144,18 @@ async function migrate() {
         created_at     DATE NOT NULL,
         updated_at     DATE NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS price_lists (
+        id               TEXT PRIMARY KEY,
+        name             TEXT NOT NULL,
+        discount_percent NUMERIC NOT NULL DEFAULT 0,
+        is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at       TIMESTAMP DEFAULT NOW()
+      );
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS price_list_id    TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS default_discount NUMERIC DEFAULT 0;
+      ALTER TABLE sale_order_items ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS discount       NUMERIC DEFAULT 0;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS price_list_id  TEXT;
       CREATE TABLE IF NOT EXISTS customer_activities (
         id          TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
@@ -215,6 +228,7 @@ app.use('/api/purchase-orders',    purchaseOrdersRouter)
 app.use('/api/dispatches',         dispatchesRouter)
 app.use('/api/expenses',           expensesRouter)
 app.use('/api/opportunities',      opportunitiesRouter)
+app.use('/api/price-lists',        priceListsRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

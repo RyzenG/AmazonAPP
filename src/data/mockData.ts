@@ -39,19 +39,34 @@ export interface ProductionOrder {
   estimatedCost: number; actualCost?: number; assignedTo: string
 }
 
+export interface PriceList {
+  id: string
+  name: string          // e.g. "Mayorista", "Distribuidor", "VIP"
+  discountPercent: number // global discount % for this list (0-100)
+  isActive: boolean
+}
+
 export interface Customer {
   id: string; code: string; name: string; company?: string
   email: string; phone: string; city: string; segment: string
   totalPurchases: number; lastPurchase: string; isActive: boolean
   notes?: string
+  priceListId?: string   // assigned price list
+  defaultDiscount?: number // default discount % for this customer (0-100)
+}
+
+export interface OrderItem {
+  product: string; productId?: string; variantId?: string
+  qty: number; price: number; discount?: number; subtotal: number
 }
 
 export interface SaleOrder {
   id: string; orderNumber: string; customer: string; customerId: string
-  items: { product: string; productId?: string; variantId?: string; qty: number; price: number; subtotal: number }[]
-  subtotal: number; tax: number; total: number; status: string
+  items: OrderItem[]
+  subtotal: number; discount?: number; tax: number; total: number; status: string
   paymentStatus: string; paymentMethod: string; date: string; deliveryDate?: string
   notes?: string
+  priceListId?: string
   // Invoice fields
   invoiceNumber?: string   // e.g. FAC-2025-0001
   invoiceDate?:   string   // ISO date when invoice was generated
@@ -150,12 +165,13 @@ export interface CustomerActivity {
 
 export interface Quotation {
   id: string; quoteNumber: string; customer: string; customerId: string
-  items: { product: string; productId?: string; variantId?: string; qty: number; price: number; subtotal: number }[]
-  subtotal: number; tax: number; total: number
+  items: OrderItem[]
+  subtotal: number; discount?: number; tax: number; total: number
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
   validUntil: string; date: string
   deliveryEstimate?: string; notes?: string; internalNotes?: string
   convertedToOrderId?: string
+  priceListId?: string
 }
 
 // ── Supplies ────────────────────────────────

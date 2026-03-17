@@ -41,7 +41,7 @@ const QUOTE_STATUS_BADGE: Record<string, string> = {
 // ── CustomerModal ──────────────────────────────────────────────────────────
 
 function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
-  const { addCustomer, updateCustomer, customers } = useStore()
+  const { addCustomer, updateCustomer, customers, priceLists } = useStore()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
     code: `CLI-${String(customers.length + 1).padStart(4, '0')}`, name: '', company: '',
     email: '', phone: '', city: '', segment: 'regular', isActive: true,
@@ -75,6 +75,21 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
               onChange={(e) => setForm({ ...form, segment: e.target.value })}>
               {['regular', 'mayorista', 'vip'].map((s) => <option key={s} value={s}>{SEG_LABELS[s]}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="label">Lista de precios</label>
+            <select className="input" value={String(form.priceListId ?? '')}
+              onChange={(e) => setForm({ ...form, priceListId: e.target.value || undefined })}>
+              <option value="">— Sin lista —</option>
+              {priceLists.filter(pl => pl.isActive).map((pl) => <option key={pl.id} value={pl.id}>{pl.name} ({pl.discountPercent}%)</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Descuento fijo (%)</label>
+            <input className="input" type="number" min="0" max="100" step="0.5"
+              value={form.defaultDiscount ?? ''}
+              onChange={(e) => setForm({ ...form, defaultDiscount: parseFloat(e.target.value) || undefined })}
+              placeholder="ej. 10" />
           </div>
           <div className="col-span-2">
             <label className="label">Notas internas</label>

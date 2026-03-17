@@ -99,6 +99,7 @@ function InvoiceBody({ order, settings, qrDataUrl }: {
             <th style={{ padding: '8px 10px', textAlign: 'left',  fontWeight: 700 }}>Producto / Descripción</th>
             <th style={{ padding: '8px 10px', textAlign: 'center',fontWeight: 700 }}>Cant.</th>
             <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>Precio unit.</th>
+            {order.items.some(it => it.discount) && <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>Dto.</th>}
             <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, borderRadius: '0 6px 6px 0' }}>Subtotal</th>
           </tr>
         </thead>
@@ -109,6 +110,7 @@ function InvoiceBody({ order, settings, qrDataUrl }: {
               <td style={{ padding: '8px 10px', fontWeight: 600, color: '#1e293b' }}>{item.product}</td>
               <td style={{ padding: '8px 10px', textAlign: 'center', color: '#475569' }}>{item.qty}</td>
               <td style={{ padding: '8px 10px', textAlign: 'right', color: '#475569' }}>{formatCOP(item.price)}</td>
+              {order.items.some(it => it.discount) && <td style={{ padding: '8px 10px', textAlign: 'right', color: item.discount ? '#16a34a' : '#94a3b8' }}>{item.discount ? `${item.discount}%` : '—'}</td>}
               <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#14532d' }}>{formatCOP(item.subtotal)}</td>
             </tr>
           ))}
@@ -148,7 +150,8 @@ function InvoiceBody({ order, settings, qrDataUrl }: {
         <div style={{ minWidth: 220 }}>
           <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
             {[
-              { label: 'Subtotal', value: order.subtotal },
+              { label: order.discount ? 'Subtotal bruto' : 'Subtotal', value: order.subtotal },
+              ...(order.discount ? [{ label: 'Descuento', value: -order.discount }] : []),
               { label: 'IVA (19%)', value: order.tax },
             ].map((r) => (
               <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 14px', borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc', fontSize: 12 }}>
