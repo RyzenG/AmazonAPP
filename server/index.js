@@ -1,8 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 
 import { pool } from './db.js'
+import { authMiddleware } from './middleware/auth.js'
 import usersRouter          from './routes/users.js'
 import emailRouter          from './routes/email.js'
 import suppliesRouter       from './routes/supplies.js'
@@ -21,6 +24,7 @@ import dispatchesRouter          from './routes/dispatches.js'
 import expensesRouter            from './routes/expenses.js'
 import opportunitiesRouter       from './routes/opportunities.js'
 import priceListsRouter          from './routes/priceLists.js'
+import importRouter              from './routes/import.js'
 
 dotenv.config()
 
@@ -208,8 +212,33 @@ async function migrate() {
 }
 migrate()
 
+// ── Security middleware ──────────────────────────────────────────────────────
+app.use(helmet())
 app.use(cors())
 app.use(express.json({ limit: '50mb' })) // limit amplio para logos y PDF base64
+
+// ── Rate limiting ───────────────────────────────────────────────────────────
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intente de nuevo más tarde' },
+})
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de inicio de sesión, intente de nuevo más tarde' },
+})
+
+app.use('/api/', generalLimiter)
+app.use('/api/users/login', loginLimiter)
+
+// ── Authentication middleware ───────────────────────────────────────────────
+app.use(authMiddleware)
 
 app.use('/api/users',             usersRouter)
 app.use('/api/email',             emailRouter)
@@ -229,6 +258,7 @@ app.use('/api/dispatches',         dispatchesRouter)
 app.use('/api/expenses',           expensesRouter)
 app.use('/api/opportunities',      opportunitiesRouter)
 app.use('/api/price-lists',        priceListsRouter)
+app.use('/api/import',             importRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

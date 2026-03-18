@@ -4,6 +4,7 @@ import Topbar from './Topbar'
 import { useStore } from '../../store/useStore'
 import { usePushNotifications } from '../../hooks/usePushNotifications'
 import { useSessionTimeout }    from '../../hooks/useSessionTimeout'
+import InstallPWA from '../InstallPWA'
 
 const titles: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -36,6 +37,7 @@ export default function Layout() {
           </div>
         </main>
       </div>
+      <InstallPWA />
     </div>
   )
 }
