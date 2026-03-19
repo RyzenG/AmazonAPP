@@ -15,6 +15,9 @@ const titles: Record<string, string> = {
   '/reports':    'Reportes y Analítica',
   '/catalog':    'Catálogo de Productos',
   '/settings':   'Configuración',
+  '/returns':    'Devoluciones',
+  '/suppliers':  'Proveedores',
+  '/cartera':    'Cartera — Cuentas por Cobrar',
 }
 
 export default function Layout() {

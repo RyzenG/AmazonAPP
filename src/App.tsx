@@ -18,6 +18,9 @@ import ExpensesPage from './pages/Expenses'
 import PipelinePage from './pages/Pipeline'
 import CalendarPage from './pages/Calendar'
 import PublicCatalog from './pages/PublicCatalog'
+import ReturnsPage from './pages/Returns'
+import SuppliersPage from './pages/Suppliers'
+import CarteraPage from './pages/Cartera'
 import { useStore } from './store/useStore'
 
 export default function App() {
@@ -47,6 +50,9 @@ export default function App() {
           <Route path="/dispatch"    element={<DispatchPage />} />
           <Route path="/expenses"    element={<ExpensesPage />} />
           <Route path="/pipeline"    element={<PipelinePage />} />
+          <Route path="/returns"     element={<ReturnsPage />} />
+          <Route path="/suppliers"   element={<SuppliersPage />} />
+          <Route path="/cartera"     element={<CarteraPage />} />
           <Route path="/settings"    element={<Settings />} />
           <Route path="*"            element={<Navigate to="/dashboard" replace />} />
         </Route>

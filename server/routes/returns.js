@@ -1,0 +1,90 @@
+import { Router } from 'express'
+import { pool } from '../db.js'
+import { log, getUser } from '../audit.js'
+
+const router = Router()
+
+router.get('/', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, return_number AS "returnNumber",
+              sale_order_id AS "saleOrderId", sale_order_number AS "saleOrderNumber",
+              customer, customer_id AS "customerId",
+              date, reason, status,
+              items,
+              subtotal::float, tax::float, total::float,
+              credit_note_number AS "creditNoteNumber",
+              refund_method AS "refundMethod",
+              notes, created_at AS "createdAt"
+       FROM returns ORDER BY created_at DESC`
+    )
+    res.json(rows)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+router.post('/', async (req, res) => {
+  const { id, returnNumber, saleOrderId, saleOrderNumber, customer, customerId, date, reason, status, items, subtotal, tax, total, creditNoteNumber, refundMethod, notes } = req.body
+  if (!customer) return res.status(400).json({ error: 'customer es requerido' })
+  try {
+    await pool.query(
+      `INSERT INTO returns (id, return_number, sale_order_id, sale_order_number, customer, customer_id, date, reason, status, items, subtotal, tax, total, credit_note_number, refund_method, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id, returnNumber ?? null, saleOrderId ?? '', saleOrderNumber ?? '', customer, customerId ?? '', date, reason ?? '', status ?? 'pending', JSON.stringify(items ?? []), subtotal ?? 0, tax ?? 0, total ?? 0, creditNoteNumber ?? '', refundMethod ?? '', notes ?? '']
+    )
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'crear', entity: 'Devolución', entityId: id, entityName: `${returnNumber ?? id} — ${customer}` })
+    res.status(201).json({ id })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+router.put('/:id', async (req, res) => {
+  const { returnNumber, saleOrderId, saleOrderNumber, customer, customerId, date, reason, status, items, subtotal, tax, total, creditNoteNumber, refundMethod, notes } = req.body
+  try {
+    const { rows } = await pool.query(
+      `UPDATE returns SET
+         return_number = COALESCE($1, return_number),
+         sale_order_id = COALESCE($2, sale_order_id),
+         sale_order_number = COALESCE($3, sale_order_number),
+         customer = COALESCE($4, customer),
+         customer_id = COALESCE($5, customer_id),
+         date = COALESCE($6, date),
+         reason = COALESCE($7, reason),
+         status = COALESCE($8, status),
+         items = COALESCE($9, items),
+         subtotal = COALESCE($10, subtotal),
+         tax = COALESCE($11, tax),
+         total = COALESCE($12, total),
+         credit_note_number = COALESCE($13, credit_note_number),
+         refund_method = COALESCE($14, refund_method),
+         notes = COALESCE($15, notes)
+       WHERE id=$16
+       RETURNING id, customer`,
+      [returnNumber ?? null, saleOrderId ?? null, saleOrderNumber ?? null, customer ?? null, customerId ?? null, date ?? null, reason ?? null, status ?? null, items ? JSON.stringify(items) : null, subtotal ?? null, tax ?? null, total ?? null, creditNoteNumber ?? null, refundMethod ?? null, notes ?? null, req.params.id]
+    )
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const u = getUser(req)
+    const detail = [status && `estado → ${status}`, refundMethod && `método → ${refundMethod}`].filter(Boolean).join(', ')
+    await log({ userName: u.name, userEmail: u.email, action: 'editar', entity: 'Devolución', entityId: req.params.id, entityName: rows[0].customer, details: detail || null })
+    res.json(rows[0])
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM returns WHERE id=$1 RETURNING customer', [req.params.id])
+    if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    const u = getUser(req)
+    await log({ userName: u.name, userEmail: u.email, action: 'eliminar', entity: 'Devolución', entityId: req.params.id, entityName: rows[0].customer })
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+export default router

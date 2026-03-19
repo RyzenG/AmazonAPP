@@ -25,6 +25,8 @@ import expensesRouter            from './routes/expenses.js'
 import opportunitiesRouter       from './routes/opportunities.js'
 import priceListsRouter          from './routes/priceLists.js'
 import importRouter              from './routes/import.js'
+import returnsRouter             from './routes/returns.js'
+import suppliersRouter           from './routes/suppliers.js'
 
 dotenv.config()
 
@@ -155,6 +157,38 @@ async function migrate() {
         is_active        BOOLEAN NOT NULL DEFAULT TRUE,
         created_at       TIMESTAMP DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        contact_name  TEXT DEFAULT '',
+        email         TEXT DEFAULT '',
+        phone         TEXT DEFAULT '',
+        address       TEXT DEFAULT '',
+        city          TEXT DEFAULT '',
+        category      TEXT DEFAULT '',
+        notes         TEXT DEFAULT '',
+        is_active     BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS returns (
+        id                  TEXT PRIMARY KEY,
+        return_number       TEXT,
+        sale_order_id       TEXT DEFAULT '',
+        sale_order_number   TEXT DEFAULT '',
+        customer            TEXT NOT NULL DEFAULT '',
+        customer_id         TEXT DEFAULT '',
+        date                DATE,
+        reason              TEXT DEFAULT '',
+        status              TEXT NOT NULL DEFAULT 'pending',
+        items               JSONB NOT NULL DEFAULT '[]',
+        subtotal            NUMERIC(14,2) DEFAULT 0,
+        tax                 NUMERIC(14,2) DEFAULT 0,
+        total               NUMERIC(14,2) DEFAULT 0,
+        credit_note_number  TEXT DEFAULT '',
+        refund_method       TEXT DEFAULT '',
+        notes               TEXT DEFAULT '',
+        created_at          TIMESTAMP DEFAULT NOW()
+      );
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS price_list_id    TEXT;
       ALTER TABLE customers ADD COLUMN IF NOT EXISTS default_discount NUMERIC DEFAULT 0;
       ALTER TABLE sale_order_items ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0;
@@ -259,6 +293,8 @@ app.use('/api/expenses',           expensesRouter)
 app.use('/api/opportunities',      opportunitiesRouter)
 app.use('/api/price-lists',        priceListsRouter)
 app.use('/api/import',             importRouter)
+app.use('/api/returns',            returnsRouter)
+app.use('/api/suppliers',          suppliersRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

@@ -174,6 +174,40 @@ export interface Quotation {
   priceListId?: string
 }
 
+export interface Supplier {
+  id: string
+  name: string
+  contactName: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  category: string
+  notes: string
+  isActive: boolean
+  createdAt?: string
+}
+
+export interface Return {
+  id: string
+  returnNumber: string
+  saleOrderId: string
+  saleOrderNumber: string
+  customer: string
+  customerId: string
+  date: string
+  reason: string
+  status: 'pending' | 'approved' | 'refunded' | 'rejected'
+  items: { product: string; productId?: string; qty: number; price: number; subtotal: number }[]
+  subtotal: number
+  tax: number
+  total: number
+  creditNoteNumber: string
+  refundMethod: string
+  notes: string
+  createdAt?: string
+}
+
 // ── Supplies ────────────────────────────────
 export const supplies: Supply[] = [
   { id:'s1',  sku:'INS-001', name:'Cemento gris Portland',   category:'Cementos',    unit:'kg',  stock:120, minStock:50,  cost:0.85, supplier:'Cemex Colombia' },
