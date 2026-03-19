@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import {
   Plus, Search, X, BookOpen, Tag, TrendingUp, Trash2, Pencil,
   LayoutGrid, List, ArrowUpDown, SlidersHorizontal, FileSpreadsheet,
-  ImageIcon, ChevronDown, Star, ShoppingCart, DollarSign, Package, ExternalLink,
+  ImageIcon, ChevronDown, Star, ShoppingCart, DollarSign, Package, ExternalLink, Upload,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Product, ProductVariant } from '../data/mockData'
@@ -11,6 +11,7 @@ import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 import * as XLSX from 'xlsx'
+import ImportModal from '../components/ImportModal'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -638,7 +639,7 @@ type ViewMode = 'grid' | 'list'
 type StatusFilter = 'all' | 'active' | 'inactive'
 
 export default function Catalog() {
-  const { products, saleOrders, deleteProduct } = useStore()
+  const { products, saleOrders, deleteProduct, loadAllData } = useStore()
   const { canEdit, canDelete } = usePermissions()
 
   const [search, setSearch]         = useState('')
@@ -653,6 +654,7 @@ export default function Catalog() {
   const [selected, setSelected]     = useState<Product | null>(null)
   const [deleteTarget, setDel]      = useState<Product | null>(null)
   const [deleting, setDeleting]     = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const PAGE_SIZE = view === 'grid' ? 12 : 20
 
   // ── Per-product sales stats ──────────────────────────────────────────────
@@ -769,6 +771,9 @@ export default function Catalog() {
           </a>
           <button className="btn btn-secondary flex items-center gap-2" onClick={handleExport}>
             <FileSpreadsheet size={14} /> Exportar
+          </button>
+          <button className="btn btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
+            <Upload size={14} /> Importar
           </button>
           {canEdit('products') && (
             <button className="btn btn-primary" onClick={() => { setEdit(undefined); setShowModal(true) }}>
@@ -1036,6 +1041,13 @@ export default function Catalog() {
             setDeleting(false)
             setDel(null)
           }}
+        />
+      )}
+      {showImport && (
+        <ImportModal
+          entity="products"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => loadAllData(true)}
         />
       )}
     </div>

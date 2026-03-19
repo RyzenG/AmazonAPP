@@ -4,6 +4,7 @@ import Topbar from './Topbar'
 import { useStore } from '../../store/useStore'
 import { usePushNotifications } from '../../hooks/usePushNotifications'
 import { useSessionTimeout }    from '../../hooks/useSessionTimeout'
+import InstallPWA from '../InstallPWA'
 
 const titles: Record<string, string> = {
   '/dashboard':  'Dashboard',
@@ -14,6 +15,9 @@ const titles: Record<string, string> = {
   '/reports':    'Reportes y Analítica',
   '/catalog':    'Catálogo de Productos',
   '/settings':   'Configuración',
+  '/returns':    'Devoluciones',
+  '/suppliers':  'Proveedores',
+  '/cartera':    'Cartera — Cuentas por Cobrar',
 }
 
 export default function Layout() {
@@ -36,6 +40,7 @@ export default function Layout() {
           </div>
         </main>
       </div>
+      <InstallPWA />
     </div>
   )
 }

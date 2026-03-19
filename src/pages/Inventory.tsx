@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, AlertTriangle, Search, Package, ArrowUpCircle, ArrowDownCircle, X, Trash2, Pencil, ShoppingCart, ChevronDown, ChevronUp, Upload } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Supply } from '../data/mockData'
 import { usePermissions } from '../hooks/usePermissions'
 import ConfirmDelete from '../components/ConfirmDelete'
+import ImportModal from '../components/ImportModal'
 import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 
@@ -142,7 +143,7 @@ function SupplyModal({ supply, onClose }: { supply?: Supply; onClose: () => void
 }
 
 export default function Inventory() {
-  const { supplies, deleteSupply } = useStore()
+  const { supplies, deleteSupply, loadAllData } = useStore()
   const { canEdit, canDelete } = usePermissions()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch]           = useState('')
@@ -154,6 +155,7 @@ export default function Inventory() {
   const [deleting, setDeleting]         = useState(false)
   const [page, setPage]                 = useState(1)
   const [showReorder, setShowReorder]   = useState(true)
+  const [showImport, setShowImport]     = useState(false)
   const PAGE_SIZE = 20
 
   // Smart reorder suggestions: items below min stock, suggest ordering to 2x min
@@ -202,9 +204,14 @@ export default function Inventory() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Inventario</h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm">Gestión de insumos y materias primas</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditSupply(undefined); setShowModal(true) }}>
-          <Plus size={16} /> Nuevo insumo
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="btn btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
+            <Upload size={14} /> Importar
+          </button>
+          <button className="btn btn-primary" onClick={() => { setEditSupply(undefined); setShowModal(true) }}>
+            <Plus size={16} /> Nuevo insumo
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -370,6 +377,13 @@ export default function Inventory() {
 
       {movSupply && <MovementModal supply={movSupply} onClose={() => setMovSupply(null)} />}
       {showModal && <SupplyModal supply={editSupply} onClose={() => setShowModal(false)} />}
+      {showImport && (
+        <ImportModal
+          entity="supplies"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => loadAllData(true)}
+        />
+      )}
       {deleteTarget && (
         <ConfirmDelete
           name={deleteTarget.name}

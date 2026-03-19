@@ -1,8 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 
 import { pool } from './db.js'
+import { authMiddleware } from './middleware/auth.js'
 import usersRouter          from './routes/users.js'
 import emailRouter          from './routes/email.js'
 import suppliesRouter       from './routes/supplies.js'
@@ -20,6 +23,10 @@ import purchaseOrdersRouter      from './routes/purchaseOrders.js'
 import dispatchesRouter          from './routes/dispatches.js'
 import expensesRouter            from './routes/expenses.js'
 import opportunitiesRouter       from './routes/opportunities.js'
+import priceListsRouter          from './routes/priceLists.js'
+import importRouter              from './routes/import.js'
+import returnsRouter             from './routes/returns.js'
+import suppliersRouter           from './routes/suppliers.js'
 
 dotenv.config()
 
@@ -143,6 +150,50 @@ async function migrate() {
         created_at     DATE NOT NULL,
         updated_at     DATE NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS price_lists (
+        id               TEXT PRIMARY KEY,
+        name             TEXT NOT NULL,
+        discount_percent NUMERIC NOT NULL DEFAULT 0,
+        is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at       TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id            TEXT PRIMARY KEY,
+        name          TEXT NOT NULL,
+        contact_name  TEXT DEFAULT '',
+        email         TEXT DEFAULT '',
+        phone         TEXT DEFAULT '',
+        address       TEXT DEFAULT '',
+        city          TEXT DEFAULT '',
+        category      TEXT DEFAULT '',
+        notes         TEXT DEFAULT '',
+        is_active     BOOLEAN DEFAULT TRUE,
+        created_at    TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS returns (
+        id                  TEXT PRIMARY KEY,
+        return_number       TEXT,
+        sale_order_id       TEXT DEFAULT '',
+        sale_order_number   TEXT DEFAULT '',
+        customer            TEXT NOT NULL DEFAULT '',
+        customer_id         TEXT DEFAULT '',
+        date                DATE,
+        reason              TEXT DEFAULT '',
+        status              TEXT NOT NULL DEFAULT 'pending',
+        items               JSONB NOT NULL DEFAULT '[]',
+        subtotal            NUMERIC(14,2) DEFAULT 0,
+        tax                 NUMERIC(14,2) DEFAULT 0,
+        total               NUMERIC(14,2) DEFAULT 0,
+        credit_note_number  TEXT DEFAULT '',
+        refund_method       TEXT DEFAULT '',
+        notes               TEXT DEFAULT '',
+        created_at          TIMESTAMP DEFAULT NOW()
+      );
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS price_list_id    TEXT;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS default_discount NUMERIC DEFAULT 0;
+      ALTER TABLE sale_order_items ADD COLUMN IF NOT EXISTS discount NUMERIC DEFAULT 0;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS discount       NUMERIC DEFAULT 0;
+      ALTER TABLE sale_orders ADD COLUMN IF NOT EXISTS price_list_id  TEXT;
       CREATE TABLE IF NOT EXISTS customer_activities (
         id          TEXT PRIMARY KEY,
         customer_id TEXT NOT NULL,
@@ -195,8 +246,33 @@ async function migrate() {
 }
 migrate()
 
+// ── Security middleware ──────────────────────────────────────────────────────
+app.use(helmet())
 app.use(cors())
 app.use(express.json({ limit: '50mb' })) // limit amplio para logos y PDF base64
+
+// ── Rate limiting ───────────────────────────────────────────────────────────
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas solicitudes, intente de nuevo más tarde' },
+})
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de inicio de sesión, intente de nuevo más tarde' },
+})
+
+app.use('/api/', generalLimiter)
+app.use('/api/users/login', loginLimiter)
+
+// ── Authentication middleware ───────────────────────────────────────────────
+app.use(authMiddleware)
 
 app.use('/api/users',             usersRouter)
 app.use('/api/email',             emailRouter)
@@ -215,6 +291,10 @@ app.use('/api/purchase-orders',    purchaseOrdersRouter)
 app.use('/api/dispatches',         dispatchesRouter)
 app.use('/api/expenses',           expensesRouter)
 app.use('/api/opportunities',      opportunitiesRouter)
+app.use('/api/price-lists',        priceListsRouter)
+app.use('/api/import',             importRouter)
+app.use('/api/returns',            returnsRouter)
+app.use('/api/suppliers',          suppliersRouter)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 

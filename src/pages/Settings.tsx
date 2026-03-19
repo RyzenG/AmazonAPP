@@ -1,19 +1,19 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff, MessageCircle } from 'lucide-react'
+import { Users, CreditCard, Percent, Building, Bell, Shield, Save, Upload, X, Image, RotateCcw, AlertTriangle, ClipboardList, Search, RefreshCw, Plus, Pencil, Trash2, Eye, EyeOff, MessageCircle, Tag } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { UserAvatar } from '../components/layout/Topbar'
 import Pagination from '../components/Pagination'
 import { WA_TEMPLATES, WaTemplateKey } from '../utils/whatsapp'
 
 const TAB_ICONS: Record<string, any> = {
-  empresa: Building, usuarios: Users, pagos: CreditCard,
+  empresa: Building, usuarios: Users, pagos: CreditCard, precios: Tag,
   impuestos: Percent, notificaciones: Bell, whatsapp: MessageCircle, seguridad: Shield, auditoria: ClipboardList,
 }
 
-const tabs = ['empresa','usuarios','pagos','impuestos','notificaciones','whatsapp','seguridad','auditoria']
+const tabs = ['empresa','usuarios','pagos','precios','impuestos','notificaciones','whatsapp','seguridad','auditoria']
 const TAB_LABELS: Record<string, string> = {
-  empresa:'Empresa', usuarios:'Usuarios y roles', pagos:'Métodos de pago',
+  empresa:'Empresa', usuarios:'Usuarios y roles', pagos:'Métodos de pago', precios:'Listas de precios',
   impuestos:'Impuestos', notificaciones:'Notificaciones', whatsapp:'WhatsApp', seguridad:'Seguridad', auditoria:'Auditoría',
 }
 
@@ -195,7 +195,11 @@ export default function Settings() {
     if (activeTab === 'usuarios')  loadUsers()
   }, [activeTab])
 
-  const { companySettings, saveCompanySettings, factoryReset } = useStore()
+  const { companySettings, saveCompanySettings, factoryReset, priceLists, addPriceList, updatePriceList, deletePriceList } = useStore()
+  const [plModal, setPlModal] = useState<'add' | 'edit' | null>(null)
+  const [editingPL, setEditingPL] = useState<{id:string;name:string;discountPercent:number;isActive:boolean} | null>(null)
+  const [plForm, setPlForm] = useState({ name: '', discountPercent: 0, isActive: true })
+  const [plDelTarget, setPlDelTarget] = useState<string | null>(null)
 
   const handleFactoryReset = async () => {
     if (resetConfirmText !== 'RESTABLECER') return
@@ -823,6 +827,112 @@ export default function Settings() {
                 ))}
               </div>
               <button className="btn btn-secondary"><span>+ Agregar método</span></button>
+            </div>
+          )}
+
+          {activeTab === 'precios' && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Listas de precios</h3>
+                  <p className="text-sm text-slate-500 dark:text-gray-400">Define listas con descuentos predeterminados para asignar a clientes</p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => { setPlForm({ name: '', discountPercent: 0, isActive: true }); setEditingPL(null); setPlModal('add') }}>
+                  <Plus size={14} /> Nueva lista
+                </button>
+              </div>
+
+              {priceLists.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 dark:text-gray-500">
+                  <Tag size={40} className="mx-auto opacity-30 mb-3" />
+                  <p className="text-sm">No hay listas de precios configuradas</p>
+                  <p className="text-xs mt-1">Crea una para asignar descuentos automáticos a tus clientes</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {priceLists.map((pl) => (
+                    <div key={pl.id} className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${pl.isActive ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-slate-100 dark:bg-gray-600'}`}>
+                          <Tag size={18} className={pl.isActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800 dark:text-white text-sm">{pl.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-gray-400">Descuento: {pl.discountPercent}%</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`badge ${pl.isActive ? 'badge-green' : 'badge-gray'}`}>{pl.isActive ? 'Activa' : 'Inactiva'}</span>
+                        <button className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors"
+                          onClick={() => { setEditingPL(pl); setPlForm({ name: pl.name, discountPercent: pl.discountPercent, isActive: pl.isActive }); setPlModal('edit') }}>
+                          <Pencil size={14} />
+                        </button>
+                        <button className="p-1.5 text-slate-400 hover:text-red-600 transition-colors"
+                          onClick={() => setPlDelTarget(pl.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Price list modal */}
+              {plModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md animate-fadeIn">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-gray-700">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">{plModal === 'add' ? 'Nueva lista de precios' : 'Editar lista'}</h3>
+                      <button onClick={() => setPlModal(null)}><X size={18} className="text-slate-400" /></button>
+                    </div>
+                    <div className="px-6 py-5 space-y-4">
+                      <div>
+                        <label className="label">Nombre *</label>
+                        <input className="input" value={plForm.name} onChange={(e) => setPlForm({ ...plForm, name: e.target.value })} placeholder="ej. Mayorista, VIP, Distribuidor" />
+                      </div>
+                      <div>
+                        <label className="label">Descuento por defecto (%)</label>
+                        <input className="input" type="number" min="0" max="100" step="0.5" value={plForm.discountPercent}
+                          onChange={(e) => setPlForm({ ...plForm, discountPercent: parseFloat(e.target.value) || 0 })} />
+                        <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Se aplica automáticamente al crear ventas/cotizaciones para clientes con esta lista</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="pl-active" checked={plForm.isActive} onChange={(e) => setPlForm({ ...plForm, isActive: e.target.checked })} className="rounded" />
+                        <label htmlFor="pl-active" className="text-sm text-slate-700 dark:text-gray-300">Lista activa</label>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 px-6 pb-5">
+                      <button className="btn btn-secondary flex-1" onClick={() => setPlModal(null)}>Cancelar</button>
+                      <button className="btn btn-primary flex-1" onClick={() => {
+                        if (!plForm.name.trim()) return
+                        if (plModal === 'add') {
+                          addPriceList({ id: `pl${Date.now()}`, ...plForm })
+                        } else if (editingPL) {
+                          updatePriceList({ ...editingPL, ...plForm })
+                        }
+                        setPlModal(null)
+                      }}>
+                        {plModal === 'add' ? 'Crear lista' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Delete confirmation */}
+              {plDelTarget && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm animate-fadeIn p-6 text-center">
+                    <AlertTriangle size={40} className="mx-auto text-red-500 mb-3" />
+                    <h3 className="font-semibold text-slate-800 dark:text-white mb-2">Eliminar lista de precios</h3>
+                    <p className="text-sm text-slate-500 dark:text-gray-400 mb-4">Los clientes asignados a esta lista perderán su descuento automático.</p>
+                    <div className="flex gap-3">
+                      <button className="btn btn-secondary flex-1" onClick={() => setPlDelTarget(null)}>Cancelar</button>
+                      <button className="btn bg-red-600 hover:bg-red-700 text-white flex-1" onClick={() => { deletePriceList(plDelTarget); setPlDelTarget(null) }}>Eliminar</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

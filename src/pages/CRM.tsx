@@ -3,7 +3,7 @@ import {
   Plus, Search, X, Users, TrendingUp, Star, Phone, Mail, MapPin,
   MessageCircle, Send, Pencil, Trash2, FileSpreadsheet,
   PhoneCall, AtSign, Navigation, StickyNote, CheckCircle2, Circle,
-  FileText, ShoppingBag, Activity, Info, Clock, Heart, Repeat, AlertCircle,
+  FileText, ShoppingBag, Activity, Info, Clock, Heart, Repeat, AlertCircle, Upload,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { Customer, CustomerActivity, Quotation } from '../data/mockData'
@@ -12,6 +12,7 @@ import ConfirmDelete from '../components/ConfirmDelete'
 import Pagination from '../components/Pagination'
 import { formatCOP } from '../utils/currency'
 import * as XLSX from 'xlsx'
+import ImportModal from '../components/ImportModal'
 import { openWhatsApp, buildFollowUp, buildPaymentReminder, getBankInfo } from '../utils/whatsapp'
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -41,7 +42,7 @@ const QUOTE_STATUS_BADGE: Record<string, string> = {
 // ── CustomerModal ──────────────────────────────────────────────────────────
 
 function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: () => void }) {
-  const { addCustomer, updateCustomer, customers } = useStore()
+  const { addCustomer, updateCustomer, customers, priceLists } = useStore()
   const [form, setForm] = useState<Partial<Customer>>(customer ?? {
     code: `CLI-${String(customers.length + 1).padStart(4, '0')}`, name: '', company: '',
     email: '', phone: '', city: '', segment: 'regular', isActive: true,
@@ -75,6 +76,21 @@ function CustomerModal({ customer, onClose }: { customer?: Customer; onClose: ()
               onChange={(e) => setForm({ ...form, segment: e.target.value })}>
               {['regular', 'mayorista', 'vip'].map((s) => <option key={s} value={s}>{SEG_LABELS[s]}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="label">Lista de precios</label>
+            <select className="input" value={String(form.priceListId ?? '')}
+              onChange={(e) => setForm({ ...form, priceListId: e.target.value || undefined })}>
+              <option value="">— Sin lista —</option>
+              {priceLists.filter(pl => pl.isActive).map((pl) => <option key={pl.id} value={pl.id}>{pl.name} ({pl.discountPercent}%)</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Descuento fijo (%)</label>
+            <input className="input" type="number" min="0" max="100" step="0.5"
+              value={form.defaultDiscount ?? ''}
+              onChange={(e) => setForm({ ...form, defaultDiscount: parseFloat(e.target.value) || undefined })}
+              placeholder="ej. 10" />
           </div>
           <div className="col-span-2">
             <label className="label">Notas internas</label>
@@ -600,7 +616,7 @@ function CustomerDrawer({ customer, onClose, onEdit, onDelete, canEdit, canDelet
 // ── Main CRM ───────────────────────────────────────────────────────────────
 
 export default function CRM() {
-  const { customers, saleOrders, activities, deleteCustomer } = useStore()
+  const { customers, saleOrders, activities, deleteCustomer, loadAllData } = useStore()
   const { canEdit, canDelete } = usePermissions()
   const [search, setSearch]       = useState('')
   const [segFilter, setSeg]       = useState('all')
@@ -609,6 +625,7 @@ export default function CRM() {
   const [selected, setSelected]   = useState<Customer | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [showImport, setShowImport]     = useState(false)
   const [page, setPage]                 = useState(1)
   const PAGE_SIZE = 12
 
@@ -712,6 +729,9 @@ export default function CRM() {
         <div className="flex items-center gap-2">
           <button className="btn btn-secondary flex items-center gap-2" onClick={handleExportExcel}>
             <FileSpreadsheet size={15} /> Exportar
+          </button>
+          <button className="btn btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
+            <Upload size={14} /> Importar
           </button>
           <button className="btn btn-primary" onClick={() => { setEditCustomer(undefined); setShowModal(true) }}>
             <Plus size={16} /> Nuevo cliente
@@ -859,6 +879,13 @@ export default function CRM() {
             setDeleting(false)
             setDeleteTarget(null)
           }}
+        />
+      )}
+      {showImport && (
+        <ImportModal
+          entity="customers"
+          onClose={() => setShowImport(false)}
+          onSuccess={() => loadAllData(true)}
         />
       )}
     </div>

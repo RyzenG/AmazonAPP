@@ -11,13 +11,14 @@ router.get('/', async (req, res) => {
               customer_id AS "customerId", customer_name AS "customer",
               date, status, payment_status AS "paymentStatus",
               payment_method AS "paymentMethod",
-              subtotal::float, tax::float, total::float, notes
+              subtotal::float, discount::float, tax::float, total::float, notes,
+              price_list_id AS "priceListId"
        FROM sale_orders ORDER BY created_at DESC`
     )
     const { rows: items } = await pool.query(
       `SELECT order_id AS "orderId", product_id AS "productId",
               product_name AS "product", quantity::float AS "qty",
-              unit_price::float AS "price", subtotal::float
+              unit_price::float AS "price", discount::float, subtotal::float
        FROM sale_order_items`
     )
     const itemsByOrder = items.reduce((acc, item) => {
@@ -32,22 +33,22 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { id, orderNumber, customerId, customer, date, status, paymentStatus, paymentMethod, subtotal, tax, total, notes, items } = req.body
+  const { id, orderNumber, customerId, customer, date, status, paymentStatus, paymentMethod, subtotal, discount, tax, total, notes, items, priceListId } = req.body
   if (!customer) return res.status(400).json({ error: 'customer es requerido' })
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
     await client.query(
-      `INSERT INTO sale_orders (id, order_number, customer_id, customer_name, date, status, payment_status, payment_method, subtotal, tax, total, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [id, orderNumber ?? null, customerId ?? null, customer, date, status ?? 'pending', paymentStatus ?? 'pending', paymentMethod ?? null, subtotal ?? 0, tax ?? 0, total ?? 0, notes ?? null]
+      `INSERT INTO sale_orders (id, order_number, customer_id, customer_name, date, status, payment_status, payment_method, subtotal, discount, tax, total, notes, price_list_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [id, orderNumber ?? null, customerId ?? null, customer, date, status ?? 'pending', paymentStatus ?? 'pending', paymentMethod ?? null, subtotal ?? 0, discount ?? 0, tax ?? 0, total ?? 0, notes ?? null, priceListId ?? null]
     )
     if (items?.length) {
       for (const item of items) {
         await client.query(
-          `INSERT INTO sale_order_items (order_id, product_id, product_name, quantity, unit_price, subtotal)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
-          [id, item.productId ?? '', item.product ?? item.productName ?? '', item.qty ?? item.quantity ?? 0, item.price ?? item.unitPrice ?? 0, item.subtotal ?? 0]
+          `INSERT INTO sale_order_items (order_id, product_id, product_name, quantity, unit_price, discount, subtotal)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [id, item.productId ?? '', item.product ?? item.productName ?? '', item.qty ?? item.quantity ?? 0, item.price ?? item.unitPrice ?? 0, item.discount ?? 0, item.subtotal ?? 0]
         )
       }
     }
